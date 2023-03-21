@@ -39,7 +39,7 @@ No resources.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"complete-example-waf"` | no |
-| <a name="input_rule_1_name"></a> [rule\_1\_name](#input\_rule\_1\_name) | Name of the rule | `string` | `"REGIONAL"` | no |
+| <a name="input_rule_1_name"></a> [rule\_1\_name](#input\_rule\_1\_name) | Name of the rule | `string` | `"allow-ke-traffic"` | no |
 | <a name="input_scope"></a> [scope](#input\_scope) | Specifies whether this is for an AWS CloudFront distribution or for a regional application | `string` | `"REGIONAL"` | no |
 
 ## Outputs
