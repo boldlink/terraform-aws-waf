@@ -9,7 +9,7 @@
 
 [<img src="https://avatars.githubusercontent.com/u/25388280?s=200&v=4" width="96"/>](https://boldlink.io)
 
-# Terraform  module example of complete and most common configuration
+# Terraform module example of complete and most common configuration
 
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
@@ -18,7 +18,7 @@
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 0.14.11 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.20.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.55.0 |
 
 ## Providers
 
@@ -26,7 +26,9 @@ No providers.
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_complete_example"></a> [complete\_example](#module\_complete\_example) | ./../.. | n/a |
 
 ## Resources
 
@@ -34,7 +36,11 @@ No resources.
 
 ## Inputs
 
-No inputs.
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"complete-example-waf"` | no |
+| <a name="input_rule_1_name"></a> [rule\_1\_name](#input\_rule\_1\_name) | Name of the rule | `string` | `"REGIONAL"` | no |
+| <a name="input_scope"></a> [scope](#input\_scope) | Specifies whether this is for an AWS CloudFront distribution or for a regional application | `string` | `"REGIONAL"` | no |
 
 ## Outputs
 
@@ -54,4 +60,4 @@ This repository uses third party software:
   * Install with `brew install tflint`
   * Manually use via pre-commit
 
-#### BOLDLink-SIG 2022
+#### BOLDLink-SIG 2023

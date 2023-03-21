@@ -18,7 +18,7 @@
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 0.14.11 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.20.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.55.0 |
 
 ## Providers
 
@@ -26,7 +26,9 @@ No providers.
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_minimum"></a> [minimum](#module\_minimum) | ./../.. | n/a |
 
 ## Resources
 
@@ -34,7 +36,10 @@ No resources.
 
 ## Inputs
 
-No inputs.
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"minimum-example-waf-acl"` | no |
+| <a name="input_scope"></a> [scope](#input\_scope) | Whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL` | `string` | `"REGIONAL"` | no |
 
 ## Outputs
 
@@ -54,4 +59,4 @@ This repository uses third party software:
   * Install with `brew install tflint`
   * Manually use via pre-commit
 
-#### BOLDLink-SIG 2022
+#### BOLDLink-SIG 2023
