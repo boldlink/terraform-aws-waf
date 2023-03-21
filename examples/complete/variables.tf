@@ -13,5 +13,5 @@ variable "scope" {
 variable "rule_1_name" {
   type        = string
   description = "Name of the rule"
-  default     = "REGIONAL"
+  default     = "allow-ke-traffic"
 }
