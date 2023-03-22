@@ -63,6 +63,12 @@ variable "web_acl_resource_arn" {
   default     = null
 }
 
+variable "create_acl_association" {
+  type        = bool
+  description = "Whether to create acl association"
+  default     = false
+}
+
 variable "ip_set_v4" {
   type        = any
   description = "IPV4 IP set"

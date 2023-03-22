@@ -279,7 +279,7 @@ resource "aws_wafv2_web_acl" "main" {
 }
 
 resource "aws_wafv2_web_acl_association" "main" {
-  count        = var.web_acl_resource_arn != null ? 1 : 0
+  count        = var.create_acl_association ? 1 : 0
   resource_arn = var.web_acl_resource_arn
   web_acl_arn  = aws_wafv2_web_acl.main.arn
   depends_on   = [aws_wafv2_web_acl.main]

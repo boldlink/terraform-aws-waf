@@ -4,8 +4,16 @@ variable "name" {
   default     = "minimum-example-waf-acl"
 }
 
-variable "scope" {
-  type        = string
-  description = "Whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`"
-  default     = "REGIONAL"
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply to the created resources"
+  default = {
+    Environment        = "examples"
+    "user::CostCenter" = "terraform-registry"
+    Department         = "DevOps"
+    Project            = "Examples"
+    Owner              = "Boldlink"
+    LayerName          = "cExample"
+    LayerId            = "cExample"
+  }
 }
