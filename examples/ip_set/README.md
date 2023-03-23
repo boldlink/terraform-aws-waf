@@ -9,7 +9,7 @@
 
 [<img src="https://avatars.githubusercontent.com/u/25388280?s=200&v=4" width="96"/>](https://boldlink.io)
 
-# Terraform module example of minimum configuration
+# Terraform module example of complete and most common configuration
 
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
@@ -28,7 +28,7 @@ No providers.
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_minimum"></a> [minimum](#module\_minimum) | ./../.. | n/a |
+| <a name="module_ip_set_example"></a> [ip\_set\_example](#module\_ip\_set\_example) | ./../.. | n/a |
 
 ## Resources
 
@@ -38,7 +38,11 @@ No resources.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"minimum-example-waf-acl"` | no |
+| <a name="input_addresses"></a> [addresses](#input\_addresses) | An array of strings that specify one or more IP addresses or blocks of IP addresses in Classless Inter-Domain Routing (CIDR) notation. | `list(any)` | <pre>[<br>  "53.115.27.20/32"<br>]</pre> | no |
+| <a name="input_description"></a> [description](#input\_description) | Description of IP set | `string` | `"allow-custom-ip"` | no |
+| <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"ip-set-example"` | no |
+| <a name="input_rule_name"></a> [rule\_name](#input\_rule\_name) | Name of the rule | `string` | `"allow-custom-ip"` | no |
+| <a name="input_scope"></a> [scope](#input\_scope) | Whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. | `string` | `"REGIONAL"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the created resources | `map(string)` | <pre>{<br>  "Department": "DevOps",<br>  "Environment": "examples",<br>  "LayerId": "cExample",<br>  "LayerName": "cExample",<br>  "Owner": "Boldlink",<br>  "Project": "Examples",<br>  "user::CostCenter": "terraform-registry"<br>}</pre> | no |
 
 ## Outputs
