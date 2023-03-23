@@ -6,7 +6,7 @@ module "waf_lb_vpc" {
   enable_dns_support    = var.enable_dns_support
   enable_dns_hostnames  = var.enable_dns_hostnames
   enable_public_subnets = var.enable_public_subnets
-  tags                  = local.tags
+  tags                  = var.tags
 
   public_subnets = {
     public = {
