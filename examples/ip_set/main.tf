@@ -1,7 +1,7 @@
 module "ip_set_example" {
   source = "./../.."
   name   = var.name
-  tags =local.tags
+  tags   = local.tags
 
   rules = [
     {
@@ -25,10 +25,10 @@ module "ip_set_example" {
 
   ip_set_v4 = [
     {
-      name               = var.name
-      description        = var.description
-      scope              = var.scope
-      addresses          = var.addresses
+      name        = var.name
+      description = var.description
+      scope       = var.scope
+      addresses   = var.addresses
     }
   ]
 }

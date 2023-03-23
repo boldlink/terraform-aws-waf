@@ -10,10 +10,10 @@ variable "cidr_block" {
   default     = "10.1.0.0/16"
 }
 
-variable "tags"{
-type=map(string)
-description = "Tags to apply to the created resources"
-default = {
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply to the created resources"
+  default = {
     Environment        = "examples"
     "user::CostCenter" = "terraform-registry"
     Department         = "DevOps"
@@ -40,4 +40,16 @@ variable "enable_public_subnets" {
   type        = bool
   description = "Whether to enable public subnets"
   default     = true
+}
+
+variable "map_public_ip_on_launch" {
+  type        = bool
+  description = "Whether assign public IPs by default to instances launched on subnet"
+  default     = true
+}
+
+variable "nat" {
+  type        = string
+  description = "Choose `single` or `multi` for NATs"
+  default     = "single"
 }

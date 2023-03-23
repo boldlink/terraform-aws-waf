@@ -1,3 +1,3 @@
 locals {
-tags=merge({ "Name" = var.name }, var.tags)
+  tags = merge({ "Name" = var.name }, var.tags)
 }

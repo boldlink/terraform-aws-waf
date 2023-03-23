@@ -28,10 +28,10 @@ variable "scope" {
   default     = "REGIONAL"
 }
 
-variable "tags"{
-type=map(string)
-description = "Tags to apply to the created resources"
-default = {
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply to the created resources"
+  default = {
     Environment        = "examples"
     "user::CostCenter" = "terraform-registry"
     Department         = "DevOps"

@@ -75,6 +75,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_cloudwatch_metrics_enabled"></a> [cloudwatch\_metrics\_enabled](#input\_cloudwatch\_metrics\_enabled) | Whether to enable cloudwatch metrics | `bool` | `false` | no |
+| <a name="input_create_acl_association"></a> [create\_acl\_association](#input\_create\_acl\_association) | Whether to create acl association | `bool` | `false` | no |
 | <a name="input_custom_response_body"></a> [custom\_response\_body](#input\_custom\_response\_body) | Defines custom response bodies that can be referenced by `custom_response` actions | `any` | `[]` | no |
 | <a name="input_default_action"></a> [default\_action](#input\_default\_action) | COnfiguration block for action to take when no actions are specified | `any` | `{}` | no |
 | <a name="input_description"></a> [description](#input\_description) | Friendly description of the WebACL. | `string` | `null` | no |

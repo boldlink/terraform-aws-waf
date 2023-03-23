@@ -2,7 +2,7 @@ module "access_logs_s3" {
   source        = "boldlink/s3/aws"
   bucket        = var.name
   bucket_policy = data.aws_iam_policy_document.s3.json
-  force_destroy = true
+  force_destroy = var.force_destroy
   tags          = local.tags
 }
 
@@ -12,34 +12,23 @@ module "alb" {
   source                     = "boldlink/lb/aws"
   version                    = "1.0.8"
   name                       = var.name
-  internal                   = false
-  enable_deletion_protection = false
+  internal                   = var.internal
+  enable_deletion_protection = var.enable_deletion_protection
   vpc_id                     = local.vpc_id
   subnets                    = local.public_subnets
   tags                       = local.tags
 
   access_logs = {
     bucket  = module.access_logs_s3.bucket
-    enabled = true
+    enabled = var.access_logs_enabled
   }
 
   ingress_rules = {
-    http = {
-      description = "allow http"
-      from_port   = 80
-      to_port     = 80
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
+    http = var.http_ingress_rules
   }
 
   egress_rules = {
-    default = {
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
+    default = var.http_egress_rules
   }
 }
 
@@ -49,12 +38,23 @@ module "waf" {
   tags                   = local.tags
   web_acl_resource_arn   = module.alb.lb_arn
   depends_on             = [module.alb]
-  create_acl_association = true
+  create_acl_association = var.create_acl_association
+
+  default_action = {
+    allow = {
+      custom_request_handling = {
+        insert_header = {
+          name  = var.custom_header_name
+          value = var.custom_header_value
+        }
+      }
+    }
+  }
 
   rules = [
     {
       name     = var.rule_name
-      priority = 3
+      priority = var.rule_priority
 
       action = {
         allow = {}
@@ -62,14 +62,14 @@ module "waf" {
 
       statement = {
         geo_match_statement = {
-          country_codes = ["KE"]
+          country_codes = var.country_codes
         }
       }
 
       visibility_config = {
-        cloudwatch_metrics_enabled = false
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
         metric_name                = "${var.name}-metric"
-        sampled_requests_enabled   = false
+        sampled_requests_enabled   = var.sampled_requests_enabled
       }
     }
   ]

@@ -23,10 +23,10 @@ resource "aws_wafv2_web_acl" "main" {
             content {
 
               dynamic "insert_header" {
-                for_each = lookup(custom_request_handling.value, "insert_headers", [])
+                for_each = try([custom_request_handling.value.insert_header], [])
                 content {
-                  name  = try(insert_header.value.name, null)
-                  value = try(insert_header.value.value, null)
+                  name  = insert_header.value.name
+                  value = insert_header.value.value
                 }
               }
             }
