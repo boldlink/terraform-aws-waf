@@ -18,7 +18,7 @@ This terraform module creates WAF resources on AWS.
 
 ## Reasons to use this Module
 This module has the following features;
-- Creates both classic WAF and WAFv2 resources
+- Creates WAFv2 resources
 - Ability to create WAF ACLs
 - Specify both IPv4 and IPv6 Ipsets
 - Simple to use with easy to understand examples
@@ -56,7 +56,7 @@ module "miniumum" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.63.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.65.0 |
 
 ## Modules
 

@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Add regex pattern set features
 - feat: Add web acl logging configuration feature(s)
 
+## [1.0.1] - 2023-05-04
+- fix: Modified README.md text on the version of resources created
+
 ## [1.0.0] - 2023-03-21
 - feat: Added required waf acl features
 - feat: Added web acl association resource
