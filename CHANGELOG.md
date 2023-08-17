@@ -29,5 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Added web acl association resource
 - feat: Added IP set feature
 
-[Unreleased]: https://github.com/boldlink/terraform-aws-waf/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/boldlink/terraform-aws-waf/compare/1.0.2...HEAD
+[1.0.2]: https://github.com/boldlink/terraform-aws-waf/releases/tag/1.0.2
+[1.0.1]: https://github.com/boldlink/terraform-aws-waf/releases/tag/1.0.1
 [1.0.0]: https://github.com/boldlink/terraform-aws-waf/releases/tag/1.0.0
