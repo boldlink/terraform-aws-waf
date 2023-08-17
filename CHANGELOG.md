@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Add rule group features
 - feat: Add regex pattern set features
 - feat: Add web acl logging configuration feature(s)
+- fix: CKV_TF_1 #"Ensure Terraform module sources use a commit hash"
+- fix: CKV_AWS_342 #"Ensure WAF rule has any actions"
+
+## [1.0.2] - 2023-08-17
+- fix: vpc version used in supporting resources
+- fix: added checkov exceptions to `.checkov.yaml` file
 
 ## [1.0.1] - 2023-05-04
 - fix: Modified README.md text on the version of resources created

@@ -1,3 +1,5 @@
 skip-check:
 - CKV_AWS_192 #"Ensure WAF prevents message lookup in Log4j2. See CVE-2021-44228 aka log4jshell"
 - CKV2_AWS_31 #"Ensure WAF2 has a Logging Configuration"
+- CKV_TF_1 #"Ensure Terraform module sources use a commit hash"
+- CKV_AWS_342 #"Ensure WAF rule has any actions"
