@@ -4,16 +4,10 @@ variable "name" {
   default     = "ip-set-example"
 }
 
-variable "rule_name" {
-  type        = string
-  description = "Name of the rule"
-  default     = "allow-custom-ip"
-}
-
 variable "description" {
   type        = string
   description = "Description of IP set"
-  default     = "allow-custom-ip"
+  default     = "allow custom ipv4"
 }
 
 variable "addresses" {
@@ -26,6 +20,12 @@ variable "scope" {
   type        = string
   description = "Whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`."
   default     = "REGIONAL"
+}
+
+variable "default_action" {
+  type        = string
+  description = "Set to `allow` for WAF to allow requests by default. Set to `block` for WAF to block requests by default."
+  default     = "block"
 }
 
 variable "tags" {
