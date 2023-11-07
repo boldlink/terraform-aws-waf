@@ -15,13 +15,14 @@ variable "scope" {
   default     = "REGIONAL"
 }
 
+
 variable "default_action" {
-  type        = any
-  description = "COnfiguration block for action to take when no actions are specified"
-  default     = {}
+  type        = string
+  description = "Set to `allow` for WAF to allow requests by default. Set to `block` for WAF to block requests by default."
+  default     = "allow"
 }
 
-variable "custom_response_body" {
+variable "custom_response_bodies" {
   type        = any
   description = "Defines custom response bodies that can be referenced by `custom_response` actions"
   default     = []

@@ -4,62 +4,20 @@ resource "aws_wafv2_web_acl" "main" {
   scope       = var.scope
   tags        = var.tags
 
-  dynamic "default_action" {
-    for_each = length(keys(var.default_action)) > 0 ? [] : [true]
-    content {
-      allow {}
+  default_action {
+    dynamic "allow" {
+      for_each = var.default_action == "allow" ? [1] : []
+      content {}
     }
-  }
 
-  dynamic "default_action" {
-    for_each = length(keys(var.default_action)) > 0 ? [var.default_action] : []
-    content {
-
-      dynamic "allow" {
-        for_each = try([default_action.value.allow], [])
-        content {
-          dynamic "custom_request_handling" {
-            for_each = try([allow.value.custom_request_handling], [])
-            content {
-
-              dynamic "insert_header" {
-                for_each = try([custom_request_handling.value.insert_header], [])
-                content {
-                  name  = insert_header.value.name
-                  value = insert_header.value.value
-                }
-              }
-            }
-          }
-        }
-      }
-
-      dynamic "block" {
-        for_each = try([default_action.value.block], [])
-        content {
-
-          dynamic "custom_response" {
-            for_each = try([block.value.custom_response], [])
-            content {
-              custom_response_body_key = try(custom_response.value.custom_response_body_key, null)
-              response_code            = custom_response.value.response_code
-
-              dynamic "response_header" {
-                for_each = try([custom_response.value.response_header], [])
-                content {
-                  name  = try(response_header.value.name, null)
-                  value = try(response_header.value.value, null)
-                }
-              }
-            }
-          }
-        }
-      }
+    dynamic "block" {
+      for_each = var.default_action == "block" ? [1] : []
+      content {}
     }
   }
 
   dynamic "custom_response_body" {
-    for_each = var.custom_response_body
+    for_each = var.custom_response_bodies
     content {
       key          = custom_response_body.value.key
       content      = custom_response_body.value.content
@@ -111,7 +69,7 @@ resource "aws_wafv2_web_acl" "main" {
                   response_code            = custom_response.value.response_code
 
                   dynamic "response_header" {
-                    for_each = try([custom_response.value.response_header], [])
+                    for_each = try(custom_response.value.response_header, [])
                     content {
                       name  = try(response_header.value.name, null)
                       value = try(response_header.value.value, null)
@@ -185,22 +143,20 @@ resource "aws_wafv2_web_acl" "main" {
         content {
           dynamic "count" {
             for_each = try([override_action.value.count], [])
-            content {
-            }
+            content {}
           }
 
           dynamic "none" {
             for_each = try([override_action.value.none], [])
-            content {
-            }
+            content {}
           }
         }
       }
 
       dynamic "rule_label" {
-        for_each = try([rule.value.rule_label], [])
+        for_each = try(rule.value.rule_label, [])
         content {
-          name = try(rule_label.value.name, null)
+          name = rule_label.value
         }
       }
 
