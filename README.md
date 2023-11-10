@@ -57,7 +57,7 @@ module "miniumum" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.12.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.25.0 |
 
 ## Modules
 
@@ -78,8 +78,8 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cloudwatch_metrics_enabled"></a> [cloudwatch\_metrics\_enabled](#input\_cloudwatch\_metrics\_enabled) | Whether to enable cloudwatch metrics | `bool` | `false` | no |
 | <a name="input_create_acl_association"></a> [create\_acl\_association](#input\_create\_acl\_association) | Whether to create acl association | `bool` | `false` | no |
-| <a name="input_custom_response_body"></a> [custom\_response\_body](#input\_custom\_response\_body) | Defines custom response bodies that can be referenced by `custom_response` actions | `any` | `[]` | no |
-| <a name="input_default_action"></a> [default\_action](#input\_default\_action) | COnfiguration block for action to take when no actions are specified | `any` | `{}` | no |
+| <a name="input_custom_response_bodies"></a> [custom\_response\_bodies](#input\_custom\_response\_bodies) | Defines custom response bodies that can be referenced by `custom_response` actions | `any` | `[]` | no |
+| <a name="input_default_action"></a> [default\_action](#input\_default\_action) | Set to `allow` for WAF to allow requests by default. Set to `block` for WAF to block requests by default. | `string` | `"allow"` | no |
 | <a name="input_description"></a> [description](#input\_description) | Friendly description of the WebACL. | `string` | `null` | no |
 | <a name="input_ip_set_reference_statement"></a> [ip\_set\_reference\_statement](#input\_ip\_set\_reference\_statement) | A rule statement used to detect web requests coming from particular IP addresses or address ranges. | `any` | `{}` | no |
 | <a name="input_ip_set_v4"></a> [ip\_set\_v4](#input\_ip\_set\_v4) | IPV4 IP set | `any` | `[]` | no |
@@ -94,7 +94,16 @@ No modules.
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+|------|-------------|
+| <a name="output_arn"></a> [arn](#output\_arn) | The ARN of the WAF WebACL. |
+| <a name="output_capacity"></a> [capacity](#output\_capacity) | Web ACL capacity units (WCUs) currently being used by this web ACL. |
+| <a name="output_id"></a> [id](#output\_id) | The ID of the WAF WebACL. |
+| <a name="output_ipv4_set_arn"></a> [ipv4\_set\_arn](#output\_ipv4\_set\_arn) | The Amazon Resource Name (ARN) of the IPv4 set. |
+| <a name="output_ipv4_set_id"></a> [ipv4\_set\_id](#output\_ipv4\_set\_id) | A unique identifier for the IPv4 set. |
+| <a name="output_ipv6_set_arn"></a> [ipv6\_set\_arn](#output\_ipv6\_set\_arn) | The Amazon Resource Name (ARN) of the IPv6 set. |
+| <a name="output_ipv6_set_id"></a> [ipv6\_set\_id](#output\_ipv6\_set\_id) | A unique identifier for the IPv6 set. |
+| <a name="output_tags_all"></a> [tags\_all](#output\_tags\_all) | Map of tags assigned to the resource, including those inherited from the provider default\_tags configuration block. |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 
 ## Third party software

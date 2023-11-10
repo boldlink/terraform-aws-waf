@@ -26,7 +26,7 @@
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.12.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.25.0 |
 
 ## Modules
 
@@ -34,7 +34,8 @@
 |------|--------|---------|
 | <a name="module_access_logs_s3"></a> [access\_logs\_s3](#module\_access\_logs\_s3) | boldlink/s3/aws | n/a |
 | <a name="module_alb"></a> [alb](#module\_alb) | boldlink/lb/aws | 1.0.8 |
-| <a name="module_waf"></a> [waf](#module\_waf) | ./../.. | n/a |
+| <a name="module_complete_waf"></a> [complete\_waf](#module\_complete\_waf) | ./../.. | n/a |
+| <a name="module_waf_with_cloudfront"></a> [waf\_with\_cloudfront](#module\_waf\_with\_cloudfront) | ./../.. | n/a |
 
 ## Resources
 
@@ -52,19 +53,18 @@
 |------|-------------|------|---------|:--------:|
 | <a name="input_access_logs_enabled"></a> [access\_logs\_enabled](#input\_access\_logs\_enabled) | Whether access logs are enabled for the ALB | `bool` | `true` | no |
 | <a name="input_cloudwatch_metrics_enabled"></a> [cloudwatch\_metrics\_enabled](#input\_cloudwatch\_metrics\_enabled) | Whether to enable cloudwatch metrics | `bool` | `false` | no |
-| <a name="input_country_codes"></a> [country\_codes](#input\_country\_codes) | Country code(s) | `list(string)` | <pre>[<br>  "GB"<br>]</pre> | no |
 | <a name="input_create_acl_association"></a> [create\_acl\_association](#input\_create\_acl\_association) | Whether to create WAF ACL association resource for ALB | `bool` | `true` | no |
 | <a name="input_custom_header_name"></a> [custom\_header\_name](#input\_custom\_header\_name) | The name of the custom header to insert | `string` | `"X-My-Company-Tracking-ID"` | no |
 | <a name="input_custom_header_value"></a> [custom\_header\_value](#input\_custom\_header\_value) | The value of the custom header to insert | `string` | `"1234567890"` | no |
+| <a name="input_description"></a> [description](#input\_description) | Friendly description of the WebACL. | `string` | `"Example complete WAF ACL"` | no |
 | <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Whether to enable protection of ALB from deletion | `bool` | `false` | no |
 | <a name="input_force_destroy"></a> [force\_destroy](#input\_force\_destroy) | Whether to force destroy of bucket | `bool` | `true` | no |
 | <a name="input_http_egress_rules"></a> [http\_egress\_rules](#input\_http\_egress\_rules) | The configuration for ALB egress rules | `any` | <pre>{<br>  "cidr_blocks": [<br>    "0.0.0.0/0"<br>  ],<br>  "from_port": 0,<br>  "protocol": "-1",<br>  "to_port": 0<br>}</pre> | no |
 | <a name="input_http_ingress_rules"></a> [http\_ingress\_rules](#input\_http\_ingress\_rules) | The configuration for ALB ingress rules | `any` | <pre>{<br>  "cidr_blocks": [<br>    "0.0.0.0/0"<br>  ],<br>  "description": "allow http",<br>  "from_port": 80,<br>  "protocol": "tcp",<br>  "to_port": 80<br>}</pre> | no |
 | <a name="input_internal"></a> [internal](#input\_internal) | Whether the created ALB is internal or not | `bool` | `false` | no |
 | <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"complete-waf-example"` | no |
-| <a name="input_rule_name"></a> [rule\_name](#input\_rule\_name) | Name of the rule | `string` | `"allow-alb-regional-traffic"` | no |
-| <a name="input_rule_priority"></a> [rule\_priority](#input\_rule\_priority) | The priority of the waf acl rule | `number` | `3` | no |
 | <a name="input_sampled_requests_enabled"></a> [sampled\_requests\_enabled](#input\_sampled\_requests\_enabled) | Whether to enable simple requests | `bool` | `false` | no |
+| <a name="input_scope"></a> [scope](#input\_scope) | Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1 (N. Virginia)` on the AWS provider. | `string` | `"CLOUDFRONT"` | no |
 | <a name="input_supporting_resources_name"></a> [supporting\_resources\_name](#input\_supporting\_resources\_name) | Name of the supporting resources | `string` | `"terraform-aws-waf"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the created resources | `map(string)` | <pre>{<br>  "Department": "DevOps",<br>  "Environment": "examples",<br>  "LayerId": "cExample",<br>  "LayerName": "cExample",<br>  "Owner": "Boldlink",<br>  "Project": "Examples",<br>  "user::CostCenter": "terraform-registry"<br>}</pre> | no |
 

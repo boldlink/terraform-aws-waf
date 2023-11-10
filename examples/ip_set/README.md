@@ -30,7 +30,8 @@ No providers.
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_ip_set_example"></a> [ip\_set\_example](#module\_ip\_set\_example) | ./../.. | n/a |
+| <a name="module_ipv4_set_example"></a> [ipv4\_set\_example](#module\_ipv4\_set\_example) | ./../.. | n/a |
+| <a name="module_ipv6_set_example"></a> [ipv6\_set\_example](#module\_ipv6\_set\_example) | ./../.. | n/a |
 
 ## Resources
 
@@ -41,9 +42,9 @@ No resources.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_addresses"></a> [addresses](#input\_addresses) | An array of strings that specify one or more IP addresses or blocks of IP addresses in Classless Inter-Domain Routing (CIDR) notation. | `list(any)` | <pre>[<br>  "53.115.27.20/32"<br>]</pre> | no |
-| <a name="input_description"></a> [description](#input\_description) | Description of IP set | `string` | `"allow-custom-ip"` | no |
+| <a name="input_default_action"></a> [default\_action](#input\_default\_action) | Set to `allow` for WAF to allow requests by default. Set to `block` for WAF to block requests by default. | `string` | `"block"` | no |
+| <a name="input_description"></a> [description](#input\_description) | Description of IP set | `string` | `"allow custom ipv4"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | `"ip-set-example"` | no |
-| <a name="input_rule_name"></a> [rule\_name](#input\_rule\_name) | Name of the rule | `string` | `"allow-custom-ip"` | no |
 | <a name="input_scope"></a> [scope](#input\_scope) | Whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. | `string` | `"REGIONAL"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the created resources | `map(string)` | <pre>{<br>  "Department": "DevOps",<br>  "Environment": "examples",<br>  "LayerId": "cExample",<br>  "LayerName": "cExample",<br>  "Owner": "Boldlink",<br>  "Project": "Examples",<br>  "user::CostCenter": "terraform-registry"<br>}</pre> | no |
 
