@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - added custom response body example
  - added an example rule with a custom response
  - added an example rule with a managed group rule statement
+ - added module outputs
 
 ## [1.0.2] - 2023-08-17
 - fix: vpc version used in supporting resources

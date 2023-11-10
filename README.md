@@ -57,7 +57,7 @@ module "miniumum" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.24.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.12.0 |
 
 ## Modules
 
@@ -94,7 +94,16 @@ No modules.
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+|------|-------------|
+| <a name="output_arn"></a> [arn](#output\_arn) | The ARN of the WAF WebACL. |
+| <a name="output_capacity"></a> [capacity](#output\_capacity) | Web ACL capacity units (WCUs) currently being used by this web ACL. |
+| <a name="output_id"></a> [id](#output\_id) | The ID of the WAF WebACL. |
+| <a name="output_ipv4_set_arn"></a> [ipv4\_set\_arn](#output\_ipv4\_set\_arn) | The Amazon Resource Name (ARN) of the IPv4 set. |
+| <a name="output_ipv4_set_id"></a> [ipv4\_set\_id](#output\_ipv4\_set\_id) | A unique identifier for the IPv4 set. |
+| <a name="output_ipv6_set_arn"></a> [ipv6\_set\_arn](#output\_ipv6\_set\_arn) | The Amazon Resource Name (ARN) of the IPv6 set. |
+| <a name="output_ipv6_set_id"></a> [ipv6\_set\_id](#output\_ipv6\_set\_id) | A unique identifier for the IPv6 set. |
+| <a name="output_tags_all"></a> [tags\_all](#output\_tags\_all) | Map of tags assigned to the resource, including those inherited from the provider default\_tags configuration block. |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 
 ## Third party software
