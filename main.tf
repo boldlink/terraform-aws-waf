@@ -217,6 +217,27 @@ resource "aws_wafv2_web_acl" "main" {
               name        = managed_rule_group_statement.value.name
               vendor_name = managed_rule_group_statement.value.vendor_name
               version     = try(managed_rule_group_statement.value.version, null)
+
+              dynamic "rule_action_override" {
+                for_each = try(managed_rule_group_statement.value.rule_action_override, [])
+                content {
+                  name = rule_action_override.value.name
+                  action_to_use {
+                    dynamic "allow" {
+                      for_each = try([rule_action_override.value.action_to_use.allow], [])
+                      content {}
+                    }
+                    dynamic "block" {
+                      for_each = try([rule_action_override.value.action_to_use.block], [])
+                      content {}
+                    }
+                    dynamic "count" {
+                      for_each = try([rule_action_override.value.action_to_use.count], [])
+                      content {}
+                    }
+                  }
+                }
+              }
             }
           }
         }

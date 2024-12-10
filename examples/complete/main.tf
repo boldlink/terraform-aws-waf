@@ -137,6 +137,14 @@ module "complete_waf" {
         managed_rule_group_statement = {
           name        = "AWSManagedRulesCommonRuleSet"
           vendor_name = "AWS"
+          rule_action_override = [
+            {
+              name = "SizeRestrictions_BODY"
+              action_to_use = {
+                allow = {}
+              }
+            }
+          ]
         }
       }
       visibility_config = {
