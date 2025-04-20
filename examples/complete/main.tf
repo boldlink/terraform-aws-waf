@@ -1,6 +1,124 @@
+data "aws_caller_identity" "current" {}
+
+data "aws_vpc" "supporting" {
+  filter {
+    name   = "tag:Name"
+    values = [var.supporting_resources_name]
+  }
+}
+
+data "aws_subnets" "public" {
+  filter {
+    name   = "tag:Name"
+    values = ["${var.supporting_resources_name}*.pub.*"]
+  }
+}
+
+data "aws_subnet" "public" {
+  for_each = toset(data.aws_subnets.public.ids)
+  id       = each.value
+}
+
+data "aws_elb_service_account" "main" {}
+
+### LB Bucket Policy
+data "aws_iam_policy_document" "s3" {
+  policy_id = "s3_bucket_lb_logs"
+
+  statement {
+    actions = [
+      "s3:PutObject",
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:aws:s3:::${var.name}-${local.account_id}/*",
+    ]
+
+    principals {
+      identifiers = [local.service_account]
+      type        = "AWS"
+    }
+  }
+
+  statement {
+    actions = [
+      "s3:PutObject"
+    ]
+    effect    = "Allow"
+    resources = ["arn:aws:s3:::${var.name}-${local.account_id}/*"]
+    principals {
+      identifiers = ["delivery.logs.amazonaws.com"]
+      type        = "Service"
+    }
+  }
+
+  statement {
+    actions = [
+      "s3:GetBucketAcl"
+    ]
+    effect    = "Allow"
+    resources = ["arn:aws:s3:::${var.name}-${local.account_id}"]
+    principals {
+      identifiers = ["delivery.logs.amazonaws.com"]
+      type        = "Service"
+    }
+  }
+}
+
+# WAF Bucket Policy
+data "aws_iam_policy_document" "waf_logs_s3" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    actions   = ["s3:PutObject"]
+    resources = ["arn:aws:s3:::waf-logs-${var.name}-${local.account_id}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+  }
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    actions   = ["s3:GetBucketAcl"]
+    resources = ["arn:aws:s3:::waf-logs-${var.name}-${local.account_id}"]
+  }
+}
+
+# S3 Bucket for ALB logs
+module "waf_logs_s3" {
+  source        = "boldlink/s3/aws"
+  version       = "2.5.1"
+  bucket        = "waf-logs-${var.name}-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+  bucket_policy = data.aws_iam_policy_document.waf_logs_s3.json
+  lifecycle_configuration = [{
+    id      = "waf-logs-cleanup"
+    enabled = true
+    expiration = {
+      days = 90  # Expire logs after 90 days
+    }
+    transition = [{
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }]
+  }]
+  tags = merge(local.tags, {
+    Name = "waf-logs-${var.name}"
+  })
+}
+
 module "access_logs_s3" {
   source        = "boldlink/s3/aws"
-  bucket        = var.name
+  version       = "2.5.1"
+  bucket        = "${var.name}-${local.account_id}"
   bucket_policy = data.aws_iam_policy_document.s3.json
   force_destroy = var.force_destroy
   tags          = local.tags
@@ -17,16 +135,13 @@ module "alb" {
   vpc_id                     = local.vpc_id
   subnets                    = local.public_subnets
   tags                       = local.tags
-
   access_logs = {
     bucket  = module.access_logs_s3.bucket
     enabled = var.access_logs_enabled
   }
-
   ingress_rules = {
     http = var.http_ingress_rules
   }
-
   egress_rules = {
     default = var.http_egress_rules
   }
@@ -40,20 +155,137 @@ module "complete_waf" {
   web_acl_resource_arn   = module.alb.lb_arn
   depends_on             = [module.alb]
   create_acl_association = var.create_acl_association
-  custom_response_bodies = [
-    {
-      key          = "custom_response_body_1",
-      content      = "You are not authorized to access this resource.",
-      content_type = "TEXT_PLAIN"
-    }
-  ]
-
-  default_action = "allow"
-
+  # Enable logging to S3 bucket
+  enable_logging = true
+  log_destination_configs = [module.waf_logs_s3.arn]
+  
+  # Configure redacted fields using the new variables
+  logging_redacted_headers = ["authorization", "x-api-key", "cookie"]
+  logging_redacted_query_args = ["token", "password", "session"]
+  logging_redact_method = true
+  logging_redact_uri_path = false
+  logging_redact_query_string = false
+  logging_redact_body = true
+  logging_redact_all_query_args = false
+  # Configure logging filters
+  logging_filter = {
+    default_behavior = "KEEP"
+    filters = [
+      {
+        behavior = "DROP"
+        requirement = "MEETS_ANY"
+        conditions = [
+          {
+            action_condition = "COUNT"
+          }
+        ]
+      },
+      {
+        behavior = "KEEP"
+        requirement = "MEETS_ALL"
+        conditions = [
+          {
+            label_name_condition = "awswaf:managed:aws:bot-control:verified-bot"
+          }
+        ]
+      }
+    ]
+  }
   rules = [
+    # New CORS rule for sciensus.com domain
+    {
+      name     = "${var.name}-cors-sciensus"
+      priority = 1
+      action = {
+        allow = {}
+      }
+      statement = {
+        byte_match_statement = {
+          search_string         = "boldlink.io"
+          positional_constraint = "ENDS_WITH"
+          field_to_match = {
+            single_header = {
+              name = "origin"
+            }
+          }
+          text_transformation = [
+            {
+              priority = 0
+              type     = "NONE"
+            }
+          ]
+        }
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        metric_name                = "${var.name}-cors-sciensus-metric"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    },
+    
+    # New CORS rule for vinehealth.com domain
+    {
+      name     = "${var.name}-cors-vinehealth"
+      priority = 2
+      action = {
+        allow = {}
+      }
+      statement = {
+        byte_match_statement = {
+          search_string         = "bravolink.io"
+          positional_constraint = "ENDS_WITH"
+          field_to_match = {
+            single_header = {
+              name = "origin"
+            }
+          }
+          text_transformation = [
+            {
+              priority = 0
+              type     = "NONE"
+            }
+          ]
+        }
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        metric_name                = "${var.name}-cors-vinehealth-metric"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    },
+    
+    # New CORS preflight OPTIONS rule
+    {
+      name     = "${var.name}-cors-preflight"
+      priority = 3
+      action = {
+        allow = {}
+      }
+      statement = {
+        byte_match_statement = {
+          search_string         = "options"
+          positional_constraint = "EXACTLY"
+          field_to_match = {
+            method = {}
+          }
+          text_transformation = [
+            {
+              priority = 0
+              type     = "LOWERCASE"
+            }
+          ]
+        }
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        metric_name                = "${var.name}-cors-preflight-metric"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    },
+    
     {
       name     = "${var.name}-allow-rule"
-      priority = 1
+      priority = 4 # Changed priority to accommodate new CORS rules
 
       action = {
         allow = {
@@ -78,9 +310,10 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
+    
     {
       name       = "${var.name}-block-rule"
-      priority   = 4
+      priority   = 7 # Changed priority to accommodate new rules
       rule_label = ["ExampleLabel"]
       action = {
         block = {
@@ -107,9 +340,10 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
+    
     {
       name     = "${var.name}-captcha"
-      priority = 2
+      priority = 5 # Changed priority to accommodate new rules
 
       action = {
         captcha = {}
@@ -127,25 +361,48 @@ module "complete_waf" {
         sampled_requests_enabled   = false
       }
     },
+    
+    # AWS Common Rule Set with none override
     {
       name = "${var.name}-none-override"
       override_action = {
         none = {}
       }
-      priority = 5
+      priority = 8 # Changed priority to accommodate new rules
       statement = {
         managed_rule_group_statement = {
           name        = "AWSManagedRulesCommonRuleSet"
           vendor_name = "AWS"
+          version     = "Version_2.0" # Specify version if needed
         }
       }
       visibility_config = {
         cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
-        metric_name                = "${var.name}-count-override"
+        metric_name                = "${var.name}-common-rule-none-override"
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-
+    
+    # Added AWS SQL Injection Protection Rule Set
+    {
+      name = "${var.name}-sqli-protection"
+      override_action = {
+        none = {}
+      }
+      priority = 6 # Added priority in appropriate sequence
+      statement = {
+        managed_rule_group_statement = {
+          name        = "AWSManagedRulesSQLiRuleSet"
+          vendor_name = "AWS"
+          version     = "Version_2.0" # Specify version if needed
+        }
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        metric_name                = "${var.name}-sqli-protection"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    },
   ]
 }
 
@@ -178,9 +435,71 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
+    
+    # Add CORS rules for CloudFront too
+    {
+      name     = "${var.name}-cf-cors-sciensus"
+      priority = 2
+      action = {
+        allow = {}
+      }
+      statement = {
+        byte_match_statement = {
+          search_string         = "stg.sciensus.com"
+          positional_constraint = "ENDS_WITH"
+          field_to_match = {
+            single_header = {
+              name = "origin"
+            }
+          }
+          text_transformation = [
+            {
+              priority = 0
+              type     = "NONE"
+            }
+          ]
+        }
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        metric_name                = "${var.name}-cf-cors-sciensus-metric"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    },
+    
+    {
+      name     = "${var.name}-cf-cors-vinehealth"
+      priority = 3
+      action = {
+        allow = {}
+      }
+      statement = {
+        byte_match_statement = {
+          search_string         = ".vinehealth.com"
+          positional_constraint = "ENDS_WITH"
+          field_to_match = {
+            single_header = {
+              name = "origin"
+            }
+          }
+          text_transformation = [
+            {
+              priority = 0
+              type     = "NONE"
+            }
+          ]
+        }
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        metric_name                = "${var.name}-cf-cors-vinehealth-metric"
+        sampled_requests_enabled   = var.sampled_requests_enabled
+      }
+    },
+    
     {
       name     = "${var.name}-challenge"
-      priority = 2
+      priority = 4 # Changed priority to accommodate new rules
 
       action = {
         challenge = {}
@@ -198,9 +517,10 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = false
       }
     },
+    
     {
       name     = "${var.name}-count"
-      priority = 3
+      priority = 5 # Changed priority to accommodate new rules
 
       action = {
         count = {}
@@ -219,4 +539,140 @@ module "waf_with_cloudfront" {
       }
     },
   ]
+}
+
+variable "name" {
+  type        = string
+  description = "Friendly name of the WebACL."
+  default     = "complete-waf-example"
+}
+
+variable "description" {
+  type        = string
+  description = "Friendly description of the WebACL."
+  default     = "Example complete WAF ACL"
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply to the created resources"
+  default = {
+    Environment        = "examples"
+    "user::CostCenter" = "terraform-registry"
+    Department         = "DevOps"
+    Project            = "Examples"
+    Owner              = "Boldlink"
+    LayerName          = "cExample"
+    LayerId            = "cExample"
+  }
+}
+
+variable "supporting_resources_name" {
+  type        = string
+  description = "Name of the supporting resources"
+  default     = "terraform-aws-waf"
+}
+
+variable "custom_header_name" {
+  type        = string
+  description = "The name of the custom header to insert"
+  default     = "X-My-Company-Tracking-ID"
+}
+
+variable "custom_header_value" {
+  type        = string
+  description = "The value of the custom header to insert"
+  default     = "1234567890"
+}
+
+variable "force_destroy" {
+  type        = bool
+  description = "Whether to force destroy of bucket"
+  default     = true
+}
+
+variable "internal" {
+  type        = bool
+  description = "Whether the created ALB is internal or not"
+  default     = false
+}
+
+variable "enable_deletion_protection" {
+  type        = bool
+  description = "Whether to enable protection of ALB from deletion"
+  default     = false
+}
+
+variable "access_logs_enabled" {
+  type        = bool
+  description = "Whether access logs are enabled for the ALB"
+  default     = true
+}
+
+variable "http_ingress_rules" {
+  type        = any
+  description = "The configuration for ALB ingress rules"
+  default = {
+    description = "allow http"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+variable "http_egress_rules" {
+  type        = any
+  description = "The configuration for ALB egress rules"
+  default = {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+variable "create_acl_association" {
+  type        = bool
+  description = "Whether to create WAF ACL association resource for ALB"
+  default     = true
+}
+
+variable "cloudwatch_metrics_enabled" {
+  type        = bool
+  description = "Whether to enable cloudwatch metrics"
+  default     = false
+}
+
+variable "sampled_requests_enabled" {
+  type        = bool
+  description = "Whether to enable simple requests"
+  default     = false
+}
+
+# Cloudfront waf
+variable "scope" {
+  type        = string
+  description = "Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1 (N. Virginia)` on the AWS provider."
+  default     = "CLOUDFRONT"
+}
+
+# Local variables
+locals {
+  account_id       = data.aws_caller_identity.current.account_id
+  service_account  = data.aws_elb_service_account.main.arn
+  tags             = merge(var.tags, { Name = var.name })
+  vpc_id           = data.aws_vpc.supporting.id
+  public_subnets   = [for s in data.aws_subnet.public : s.id]
+}
+
+terraform {
+  required_version = ">= 0.14.11"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 4.55.0"
+    }
+  }
 }
