@@ -92,27 +92,99 @@ data "aws_iam_policy_document" "waf_logs_s3" {
   }
 }
 
-# S3 Bucket for ALB logs
+# S3 Bucket for WAF logs with fixed lifecycle configuration
 module "waf_logs_s3" {
   source        = "boldlink/s3/aws"
   version       = "2.5.1"
   bucket        = "waf-logs-${var.name}-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
   bucket_policy = data.aws_iam_policy_document.waf_logs_s3.json
+  
+  # Fixed lifecycle configuration to avoid the warning
   lifecycle_configuration = [{
     id      = "waf-logs-cleanup"
     enabled = true
+    filter = {
+      object_size_greater_than = 0
+    }
     expiration = {
-      days = 90  # Expire logs after 90 days
+      days = 90 # Expire logs after 90 days
     }
     transition = [{
       days          = 30
       storage_class = "STANDARD_IA"
     }]
   }]
+  
   tags = merge(local.tags, {
     Name = "waf-logs-${var.name}"
   })
+}
+
+# IAM role for the Firehose delivery stream
+resource "aws_iam_role" "firehose_waf_logs" {
+  name = "firehose-waf-logs-role-${var.name}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "firehose.amazonaws.com"
+      }
+    }]
+  })
+}
+
+# IAM policy for the Firehose role
+resource "aws_iam_role_policy" "firehose_waf_logs" {
+  name   = "firehose-waf-logs-policy-${var.name}"
+  role   = aws_iam_role.firehose_waf_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:AbortMultipartUpload",
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:PutObject"
+        ]
+        Resource = [
+          module.waf_logs_s3.arn,
+          "${module.waf_logs_s3.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# Kinesis Firehose delivery stream for WAF logs
+resource "aws_kinesis_firehose_delivery_stream" "waf_logs" {
+  name        = "aws-waf-logs-${var.name}"
+  destination = "extended_s3"
+  
+  extended_s3_configuration {
+    role_arn   = aws_iam_role.firehose_waf_logs.arn
+    bucket_arn = module.waf_logs_s3.arn
+    prefix     = "AWSLogs/${data.aws_caller_identity.current.account_id}/WAF/"
+    
+    # These are the correct parameter names
+    buffering_interval = 300
+    buffering_size     = 5
+  }
+}
+
+# CloudWatch Log Group for CloudFront WAF logs
+resource "aws_cloudwatch_log_group" "waf_cloudfront_logs" {
+  provider          = aws.cloudfront
+  name              = "/aws/waf/cloudfront/${var.name}"
+  retention_in_days = 30
+  tags              = local.tags
 }
 
 module "access_logs_s3" {
@@ -153,46 +225,50 @@ module "complete_waf" {
   description            = var.description
   tags                   = local.tags
   web_acl_resource_arn   = module.alb.lb_arn
-  depends_on             = [module.alb]
   create_acl_association = var.create_acl_association
-  # Enable logging to S3 bucket
-  enable_logging = true
-  log_destination_configs = [module.waf_logs_s3.arn]
   
-  # Configure redacted fields using the new variables
-  logging_redacted_headers = ["authorization", "x-api-key", "cookie"]
-  logging_redacted_query_args = ["token", "password", "session"]
-  logging_redact_method = true
-  logging_redact_uri_path = false
-  logging_redact_query_string = false
-  logging_redact_body = true
+  # Custom response bodies configuration
+  custom_response_bodies = [
+    {
+      key          = "custom_response_body_1"
+      content      = "You are not authorized to access this resource."
+      content_type = "TEXT_PLAIN"
+    }
+  ]
+  
+  # Enable logging with Kinesis Firehose to S3
+  enable_logging          = true
+  log_destination_configs = [aws_kinesis_firehose_delivery_stream.waf_logs.arn]
+
+  # Configure redacted fields
+  logging_redacted_headers  = ["authorization", "x-api-key"] 
+  logging_redact_method     = true
+  
+  # Additional redaction options
+  logging_redacted_query_args   = ["token", "session_id"]
+  logging_redact_body           = true
+  logging_redact_uri_path       = false
+  logging_redact_query_string   = false
   logging_redact_all_query_args = false
-  # Configure logging filters
+  
+  # Logging filter configuration
   logging_filter = {
     default_behavior = "KEEP"
     filters = [
       {
-        behavior = "DROP"
+        behavior    = "DROP"
         requirement = "MEETS_ANY"
         conditions = [
           {
             action_condition = "COUNT"
           }
         ]
-      },
-      {
-        behavior = "KEEP"
-        requirement = "MEETS_ALL"
-        conditions = [
-          {
-            label_name_condition = "awswaf:managed:aws:bot-control:verified-bot"
-          }
-        ]
       }
     ]
   }
+  
   rules = [
-    # New CORS rule for sciensus.com domain
+    # CORS rule for domains ending with boldlink.io
     {
       name     = "${var.name}-cors-sciensus"
       priority = 1
@@ -222,8 +298,8 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
-    # New CORS rule for vinehealth.com domain
+
+    # CORS rule for domains ending with bravolink.io
     {
       name     = "${var.name}-cors-vinehealth"
       priority = 2
@@ -253,8 +329,8 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
-    # New CORS preflight OPTIONS rule
+
+    # CORS preflight OPTIONS rule
     {
       name     = "${var.name}-cors-preflight"
       priority = 3
@@ -282,11 +358,11 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
+
+    # Allow requests from Great Britain
     {
       name     = "${var.name}-allow-rule"
-      priority = 4 # Changed priority to accommodate new CORS rules
-
+      priority = 4
       action = {
         allow = {
           custom_request_handling = {
@@ -297,23 +373,22 @@ module "complete_waf" {
           }
         }
       }
-
       statement = {
         geo_match_statement = {
           country_codes = ["GB"]
         }
       }
-
       visibility_config = {
         cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
         metric_name                = "${var.name}-allow-metric"
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
+
+    # Block requests from the United States
     {
       name       = "${var.name}-block-rule"
-      priority   = 7 # Changed priority to accommodate new rules
+      priority   = 7
       rule_label = ["ExampleLabel"]
       action = {
         block = {
@@ -340,40 +415,36 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
+    # CAPTCHA for requests from Netherlands
     {
       name     = "${var.name}-captcha"
-      priority = 5 # Changed priority to accommodate new rules
-
+      priority = 5
       action = {
         captcha = {}
       }
-
       statement = {
         geo_match_statement = {
           country_codes = ["NL"]
         }
       }
-
       visibility_config = {
         cloudwatch_metrics_enabled = false
         metric_name                = "${var.name}-captcha-metric"
         sampled_requests_enabled   = false
       }
     },
-    
-    # AWS Common Rule Set with none override
+
+    # AWS Common Rule Set with no override
     {
       name = "${var.name}-none-override"
       override_action = {
         none = {}
       }
-      priority = 8 # Changed priority to accommodate new rules
+      priority = 8
       statement = {
         managed_rule_group_statement = {
           name        = "AWSManagedRulesCommonRuleSet"
           vendor_name = "AWS"
-          version     = "Version_2.0" # Specify version if needed
         }
       }
       visibility_config = {
@@ -382,19 +453,19 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
-    # Added AWS SQL Injection Protection Rule Set
+
+    # SQL Injection Protection Rule Set
     {
       name = "${var.name}-sqli-protection"
       override_action = {
         none = {}
       }
-      priority = 6 # Added priority in appropriate sequence
+      priority = 6
       statement = {
         managed_rule_group_statement = {
           name        = "AWSManagedRulesSQLiRuleSet"
           vendor_name = "AWS"
-          version     = "Version_2.0" # Specify version if needed
+          version     = "Version_2.0"
         }
       }
       visibility_config = {
@@ -412,10 +483,38 @@ provider "aws" {
 }
 
 module "waf_with_cloudfront" {
-  providers = { aws = aws.cloudfront }
+  providers = {
+    aws = aws.cloudfront
+  }
   source    = "./../.."
   name      = "${var.name}-cloudfront"
   scope     = var.scope
+  
+  # Enable logging with CloudWatch Log Group
+  enable_logging          = true
+  log_destination_configs = [aws_cloudwatch_log_group.waf_cloudfront_logs.arn]
+  
+  # Configure redacted fields for CloudFront
+  logging_redacted_headers = ["cookie", "authorization"]
+  logging_redact_method    = true
+  logging_redact_uri_path  = true
+  
+  # Logging filter configuration
+  logging_filter = {
+    default_behavior = "KEEP"
+    filters = [
+      {
+        behavior    = "DROP"
+        requirement = "MEETS_ALL"
+        conditions = [
+          {
+            action_condition = "COUNT"
+          }
+        ]
+      }
+    ]
+  }
+  
   rules = [
     {
       name = "${var.name}-count-override"
@@ -435,8 +534,8 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
-    # Add CORS rules for CloudFront too
+
+    # CORS rules for CloudFront
     {
       name     = "${var.name}-cf-cors-sciensus"
       priority = 2
@@ -466,7 +565,7 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
+
     {
       name     = "${var.name}-cf-cors-vinehealth"
       priority = 3
@@ -496,42 +595,36 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-    
+
     {
       name     = "${var.name}-challenge"
-      priority = 4 # Changed priority to accommodate new rules
-
+      priority = 4
       action = {
         challenge = {}
       }
-
       statement = {
         geo_match_statement = {
           country_codes = ["NL"]
         }
       }
-
       visibility_config = {
         cloudwatch_metrics_enabled = false
         metric_name                = "${var.name}-challenge-metric"
         sampled_requests_enabled   = false
       }
     },
-    
+
     {
       name     = "${var.name}-count"
-      priority = 5 # Changed priority to accommodate new rules
-
+      priority = 5
       action = {
         count = {}
       }
-
       statement = {
         geo_match_statement = {
           country_codes = ["GB"]
         }
       }
-
       visibility_config = {
         cloudwatch_metrics_enabled = false
         metric_name                = "${var.name}-count-metric"
@@ -659,11 +752,11 @@ variable "scope" {
 
 # Local variables
 locals {
-  account_id       = data.aws_caller_identity.current.account_id
-  service_account  = data.aws_elb_service_account.main.arn
-  tags             = merge(var.tags, { Name = var.name })
-  vpc_id           = data.aws_vpc.supporting.id
-  public_subnets   = [for s in data.aws_subnet.public : s.id]
+  account_id      = data.aws_caller_identity.current.account_id
+  service_account = data.aws_elb_service_account.main.arn
+  tags            = merge(var.tags, { Name = var.name })
+  vpc_id          = data.aws_vpc.supporting.id
+  public_subnets  = [for s in data.aws_subnet.public : s.id]
 }
 
 terraform {
@@ -673,6 +766,7 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = ">= 4.55.0"
+      configuration_aliases = [aws.cloudfront]
     }
   }
 }

@@ -323,14 +323,14 @@ resource "aws_wafv2_ip_set" "ipset_v6" {
   tags               = var.tags
 }
 
-# Logging configuration with static redacted_fields
+# Logging configuration with static redacted_fields - Fixed structure
+# Logging configuration with correct redacted_fields structure
 resource "aws_wafv2_web_acl_logging_configuration" "main" {
   count                   = var.enable_logging ? 1 : 0
   log_destination_configs = var.log_destination_configs
   resource_arn            = aws_wafv2_web_acl.main.arn
 
-  # Handle redacted fields directly without complex dynamic blocks
-  # Create a redacted_fields block for each header
+  # Header redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redacted_headers != null ? var.logging_redacted_headers : []
     content {
@@ -340,7 +340,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
   
-  # Create a redacted_fields block for each query argument
+  # Query argument redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redacted_query_args != null ? var.logging_redacted_query_args : []
     content {
@@ -350,7 +350,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
   
-  # Create a redacted_fields block for all_query_arguments if enabled
+  # All query arguments redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redact_all_query_args ? [1] : []
     content {
@@ -358,7 +358,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
   
-  # Create a redacted_fields block for body if enabled
+  # Body redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redact_body ? [1] : []
     content {
@@ -366,7 +366,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
   
-  # Create a redacted_fields block for method if enabled
+  # Method redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redact_method ? [1] : []
     content {
@@ -374,7 +374,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
   
-  # Create a redacted_fields block for uri_path if enabled
+  # URI path redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redact_uri_path ? [1] : []
     content {
@@ -382,7 +382,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
   
-  # Create a redacted_fields block for query_string if enabled
+  # Query string redaction
   dynamic "redacted_fields" {
     for_each = var.logging_redact_query_string ? [1] : []
     content {
