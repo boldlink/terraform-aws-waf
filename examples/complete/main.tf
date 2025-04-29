@@ -1,106 +1,10 @@
-data "aws_caller_identity" "current" {}
-
-data "aws_vpc" "supporting" {
-  filter {
-    name   = "tag:Name"
-    values = [var.supporting_resources_name]
-  }
-}
-
-data "aws_subnets" "public" {
-  filter {
-    name   = "tag:Name"
-    values = ["${var.supporting_resources_name}*.pub.*"]
-  }
-}
-
-data "aws_subnet" "public" {
-  for_each = toset(data.aws_subnets.public.ids)
-  id       = each.value
-}
-
-data "aws_elb_service_account" "main" {}
-
-### LB Bucket Policy
-data "aws_iam_policy_document" "s3" {
-  policy_id = "s3_bucket_lb_logs"
-
-  statement {
-    actions = [
-      "s3:PutObject",
-    ]
-    effect = "Allow"
-    resources = [
-      "arn:aws:s3:::${var.name}-${local.account_id}/*",
-    ]
-
-    principals {
-      identifiers = [local.service_account]
-      type        = "AWS"
-    }
-  }
-
-  statement {
-    actions = [
-      "s3:PutObject"
-    ]
-    effect    = "Allow"
-    resources = ["arn:aws:s3:::${var.name}-${local.account_id}/*"]
-    principals {
-      identifiers = ["delivery.logs.amazonaws.com"]
-      type        = "Service"
-    }
-  }
-
-  statement {
-    actions = [
-      "s3:GetBucketAcl"
-    ]
-    effect    = "Allow"
-    resources = ["arn:aws:s3:::${var.name}-${local.account_id}"]
-    principals {
-      identifiers = ["delivery.logs.amazonaws.com"]
-      type        = "Service"
-    }
-  }
-}
-
-# WAF Bucket Policy
-data "aws_iam_policy_document" "waf_logs_s3" {
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["delivery.logs.amazonaws.com"]
-    }
-    actions   = ["s3:PutObject"]
-    resources = ["arn:aws:s3:::waf-logs-${var.name}-${local.account_id}/*"]
-    condition {
-      test     = "StringEquals"
-      variable = "s3:x-amz-acl"
-      values   = ["bucket-owner-full-control"]
-    }
-  }
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["delivery.logs.amazonaws.com"]
-    }
-    actions   = ["s3:GetBucketAcl"]
-    resources = ["arn:aws:s3:::waf-logs-${var.name}-${local.account_id}"]
-  }
-}
-
-# S3 Bucket for WAF logs with fixed lifecycle configuration
+# S3 Bucket for WAF logs
 module "waf_logs_s3" {
   source        = "boldlink/s3/aws"
   version       = "2.5.1"
-  bucket        = "waf-logs-${var.name}-${data.aws_caller_identity.current.account_id}"
+  bucket        = "aws-waf-logs-${var.name}-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
   bucket_policy = data.aws_iam_policy_document.waf_logs_s3.json
-  
-  # Fixed lifecycle configuration to avoid the warning
   lifecycle_configuration = [{
     id      = "waf-logs-cleanup"
     enabled = true
@@ -115,9 +19,8 @@ module "waf_logs_s3" {
       storage_class = "STANDARD_IA"
     }]
   }]
-  
   tags = merge(local.tags, {
-    Name = "waf-logs-${var.name}"
+    Name = "aws-waf-logs-${var.name}-${local.account_id}"
   })
 }
 
@@ -139,8 +42,8 @@ resource "aws_iam_role" "firehose_waf_logs" {
 
 # IAM policy for the Firehose role
 resource "aws_iam_role_policy" "firehose_waf_logs" {
-  name   = "firehose-waf-logs-policy-${var.name}"
-  role   = aws_iam_role.firehose_waf_logs.id
+  name = "firehose-waf-logs-policy-${var.name}"
+  role = aws_iam_role.firehose_waf_logs.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -167,24 +70,17 @@ resource "aws_iam_role_policy" "firehose_waf_logs" {
 resource "aws_kinesis_firehose_delivery_stream" "waf_logs" {
   name        = "aws-waf-logs-${var.name}"
   destination = "extended_s3"
-  
   extended_s3_configuration {
     role_arn   = aws_iam_role.firehose_waf_logs.arn
     bucket_arn = module.waf_logs_s3.arn
     prefix     = "AWSLogs/${data.aws_caller_identity.current.account_id}/WAF/"
-    
-    # These are the correct parameter names
+    # Correct parameter names for AWS provider v5.x
     buffering_interval = 300
     buffering_size     = 5
   }
-}
-
-# CloudWatch Log Group for CloudFront WAF logs
-resource "aws_cloudwatch_log_group" "waf_cloudfront_logs" {
-  provider          = aws.cloudfront
-  name              = "/aws/waf/cloudfront/${var.name}"
-  retention_in_days = 30
-  tags              = local.tags
+  tags = merge(local.tags, {
+    Name = "firehose-waf-logs-${var.name}"
+  })
 }
 
 module "access_logs_s3" {
@@ -226,7 +122,7 @@ module "complete_waf" {
   tags                   = local.tags
   web_acl_resource_arn   = module.alb.lb_arn
   create_acl_association = var.create_acl_association
-  
+
   # Custom response bodies configuration
   custom_response_bodies = [
     {
@@ -235,22 +131,25 @@ module "complete_waf" {
       content_type = "TEXT_PLAIN"
     }
   ]
-  
+
   # Enable logging with Kinesis Firehose to S3
   enable_logging          = true
   log_destination_configs = [aws_kinesis_firehose_delivery_stream.waf_logs.arn]
 
-  # Configure redacted fields
-  logging_redacted_headers  = ["authorization", "x-api-key"] 
-  logging_redact_method     = true
-  
-  # Additional redaction options
-  logging_redacted_query_args   = ["token", "session_id"]
-  logging_redact_body           = true
-  logging_redact_uri_path       = false
-  logging_redact_query_string   = false
-  logging_redact_all_query_args = false
-  
+  # Simplified redacted_fields - only supporting single_header for now
+  redacted_fields = [
+    {
+      single_header = {
+        name = "authorization"
+      }
+    },
+    {
+      single_header = {
+        name = "x-api-key"
+      }
+    }
+  ]
+
   # Logging filter configuration
   logging_filter = {
     default_behavior = "KEEP"
@@ -266,7 +165,7 @@ module "complete_waf" {
       }
     ]
   }
-  
+
   rules = [
     # CORS rule for domains ending with boldlink.io
     {
@@ -415,6 +314,7 @@ module "complete_waf" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
+
     # CAPTCHA for requests from Netherlands
     {
       name     = "${var.name}-captcha"
@@ -477,28 +377,37 @@ module "complete_waf" {
   ]
 }
 
-provider "aws" {
-  alias  = "cloudfront"
-  region = "us-east-1"
+# CloudWatch Log Group for CloudFront WAF logs
+resource "aws_cloudwatch_log_group" "waf_cloudfront_logs" {
+  provider          = aws.cloudfront
+  name              = "aws-waf-logs-cloudfront-${var.name}"
+  retention_in_days = 30
+  tags              = local.tags
 }
 
 module "waf_with_cloudfront" {
   providers = {
     aws = aws.cloudfront
   }
-  source    = "./../.."
-  name      = "${var.name}-cloudfront"
-  scope     = var.scope
-  
+  source = "./../.."
+  name   = "${var.name}-cloudfront"
+  scope  = var.scope
   # Enable logging with CloudWatch Log Group
   enable_logging          = true
   log_destination_configs = [aws_cloudwatch_log_group.waf_cloudfront_logs.arn]
-  
-  # Configure redacted fields for CloudFront
-  logging_redacted_headers = ["cookie", "authorization"]
-  logging_redact_method    = true
-  logging_redact_uri_path  = true
-  
+  # Simplified redacted_fields for CloudFront example
+  redacted_fields = [
+    {
+      single_header = {
+        name = "cookie"
+      }
+    },
+    {
+      single_header = {
+        name = "authorization"
+      }
+    }
+  ]
   # Logging filter configuration
   logging_filter = {
     default_behavior = "KEEP"
@@ -514,7 +423,6 @@ module "waf_with_cloudfront" {
       }
     ]
   }
-  
   rules = [
     {
       name = "${var.name}-count-override"
@@ -534,7 +442,6 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-
     # CORS rules for CloudFront
     {
       name     = "${var.name}-cf-cors-sciensus"
@@ -565,7 +472,6 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-
     {
       name     = "${var.name}-cf-cors-vinehealth"
       priority = 3
@@ -595,7 +501,6 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = var.sampled_requests_enabled
       }
     },
-
     {
       name     = "${var.name}-challenge"
       priority = 4
@@ -613,7 +518,6 @@ module "waf_with_cloudfront" {
         sampled_requests_enabled   = false
       }
     },
-
     {
       name     = "${var.name}-count"
       priority = 5
@@ -632,141 +536,16 @@ module "waf_with_cloudfront" {
       }
     },
   ]
+  depends_on = [aws_cloudwatch_log_group.waf_cloudfront_logs]
 }
 
-variable "name" {
-  type        = string
-  description = "Friendly name of the WebACL."
-  default     = "complete-waf-example"
+module "waf_s3" {
+  source                  = "./../.."
+  name                    = "${var.name}-s3"
+  enable_logging          = true
+  log_destination_configs = [module.waf_logs_s3.arn]
+  tags                    = local.tags
+  depends_on = [module.waf_logs_s3]
 }
 
-variable "description" {
-  type        = string
-  description = "Friendly description of the WebACL."
-  default     = "Example complete WAF ACL"
-}
 
-variable "tags" {
-  type        = map(string)
-  description = "Tags to apply to the created resources"
-  default = {
-    Environment        = "examples"
-    "user::CostCenter" = "terraform-registry"
-    Department         = "DevOps"
-    Project            = "Examples"
-    Owner              = "Boldlink"
-    LayerName          = "cExample"
-    LayerId            = "cExample"
-  }
-}
-
-variable "supporting_resources_name" {
-  type        = string
-  description = "Name of the supporting resources"
-  default     = "terraform-aws-waf"
-}
-
-variable "custom_header_name" {
-  type        = string
-  description = "The name of the custom header to insert"
-  default     = "X-My-Company-Tracking-ID"
-}
-
-variable "custom_header_value" {
-  type        = string
-  description = "The value of the custom header to insert"
-  default     = "1234567890"
-}
-
-variable "force_destroy" {
-  type        = bool
-  description = "Whether to force destroy of bucket"
-  default     = true
-}
-
-variable "internal" {
-  type        = bool
-  description = "Whether the created ALB is internal or not"
-  default     = false
-}
-
-variable "enable_deletion_protection" {
-  type        = bool
-  description = "Whether to enable protection of ALB from deletion"
-  default     = false
-}
-
-variable "access_logs_enabled" {
-  type        = bool
-  description = "Whether access logs are enabled for the ALB"
-  default     = true
-}
-
-variable "http_ingress_rules" {
-  type        = any
-  description = "The configuration for ALB ingress rules"
-  default = {
-    description = "allow http"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-variable "http_egress_rules" {
-  type        = any
-  description = "The configuration for ALB egress rules"
-  default = {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-variable "create_acl_association" {
-  type        = bool
-  description = "Whether to create WAF ACL association resource for ALB"
-  default     = true
-}
-
-variable "cloudwatch_metrics_enabled" {
-  type        = bool
-  description = "Whether to enable cloudwatch metrics"
-  default     = false
-}
-
-variable "sampled_requests_enabled" {
-  type        = bool
-  description = "Whether to enable simple requests"
-  default     = false
-}
-
-# Cloudfront waf
-variable "scope" {
-  type        = string
-  description = "Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1 (N. Virginia)` on the AWS provider."
-  default     = "CLOUDFRONT"
-}
-
-# Local variables
-locals {
-  account_id      = data.aws_caller_identity.current.account_id
-  service_account = data.aws_elb_service_account.main.arn
-  tags            = merge(var.tags, { Name = var.name })
-  vpc_id          = data.aws_vpc.supporting.id
-  public_subnets  = [for s in data.aws_subnet.public : s.id]
-}
-
-terraform {
-  required_version = ">= 0.14.11"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 4.55.0"
-      configuration_aliases = [aws.cloudfront]
-    }
-  }
-}

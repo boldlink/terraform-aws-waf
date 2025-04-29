@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: CKV_TF_1 #"Ensure Terraform module sources use a commit hash"
 - fix: CKV_AWS_342 #"Ensure WAF rule has any actions"
 
+## [1.1.0] - 2025-04-29
+ - feat: adding the byte match statement support
+ - feat: adding the logging configuration support
+ - feat: adding the new rules and logging configuration examples
+
 ## [1.0.3] - 2023-11-08
  - Added an example showcasing Global scope(cloudfront)
  - fix: default action block
