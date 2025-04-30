@@ -4,12 +4,6 @@ variable "name" {
   default     = "complete-waf-example"
 }
 
-variable "description" {
-  type        = string
-  description = "Friendly description of the WebACL."
-  default     = "Example complete WAF ACL"
-}
-
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to the created resources"
@@ -95,19 +89,6 @@ variable "create_acl_association" {
   default     = true
 }
 
-variable "cloudwatch_metrics_enabled" {
-  type        = bool
-  description = "Whether to enable cloudwatch metrics"
-  default     = false
-}
-
-variable "sampled_requests_enabled" {
-  type        = bool
-  description = "Whether to enable simple requests"
-  default     = false
-}
-
-# Cloudfront waf
 variable "scope" {
   type        = string
   description = "Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1 (N. Virginia)` on the AWS provider."

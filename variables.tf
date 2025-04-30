@@ -99,27 +99,21 @@ variable "log_destination_configs" {
   default     = []
 }
 
-# Redacted fields variable - only supporting single_header for now
+# Simplified redacted fields variable for header-only redaction
 variable "redacted_fields" {
-  type        = list(object({
-    single_header = object({
-      name = string
-    })
-  }))
-  description = "List of fields to redact from the logs. Currently only supports single_header."
+  type        = list(any)
+  description = "List of fields to redact from the logs. Currently only supports single_header type."
   default     = null
 }
 
+# Logging filter variable without experimental features
 variable "logging_filter" {
   type = object({
     default_behavior = string, # Required: "KEEP" or "DROP"
     filters = list(object({
       behavior = string, # Required: "KEEP" or "DROP"
       requirement = string, # Required: "MEETS_ALL" or "MEETS_ANY"
-      conditions = list(object({
-        action_condition = optional(string), # One of "ALLOW", "BLOCK", "COUNT", "CAPTCHA", "CHALLENGE"
-        label_name_condition = optional(string) # The name of the label
-      }))
+      conditions = list(map(string)) # Map to hold action_condition OR label_name_condition
     }))
   })
   description = "Configuration for WAF logging filters. Determines which requests are logged."
@@ -127,17 +121,6 @@ variable "logging_filter" {
   
   validation {
     condition = var.logging_filter == null ? true : contains(["KEEP", "DROP"], var.logging_filter.default_behavior)
-    error_message = "Default_behavior must be either \"KEEP\" or \"DROP\"."
-  }
-}
-
-terraform {
-  required_version = ">= 0.14.11"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 4.55.0"
-    }
+    error_message = "default_behavior must be either \"KEEP\" or \"DROP\"."
   }
 }

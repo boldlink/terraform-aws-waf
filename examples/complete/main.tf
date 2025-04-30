@@ -1,95 +1,20 @@
-# S3 Bucket for WAF logs
-module "waf_logs_s3" {
-  source        = "boldlink/s3/aws"
-  version       = "2.5.1"
-  bucket        = "aws-waf-logs-${var.name}-${data.aws_caller_identity.current.account_id}"
-  force_destroy = true
-  bucket_policy = data.aws_iam_policy_document.waf_logs_s3.json
-  lifecycle_configuration = [{
-    id      = "waf-logs-cleanup"
-    enabled = true
-    filter = {
-      object_size_greater_than = 0
-    }
-    expiration = {
-      days = 90 # Expire logs after 90 days
-    }
-    transition = [{
-      days          = 30
-      storage_class = "STANDARD_IA"
-    }]
-  }]
-  tags = merge(local.tags, {
-    Name = "aws-waf-logs-${var.name}-${local.account_id}"
-  })
+/*
+Complete example for WAF with ALB and Log Group
+*/
+resource "aws_cloudwatch_log_group" "waf_logs" {
+  # provider          = aws.cloudfront
+  name              = "aws-waf-logs-cloudfront-${var.name}"
+  retention_in_days = 30
+  tags              = merge(local.tags, { Name = "aws-waf-logs-cloudfront-${var.name}" })
 }
 
-# IAM role for the Firehose delivery stream
-resource "aws_iam_role" "firehose_waf_logs" {
-  name = "firehose-waf-logs-role-${var.name}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "firehose.amazonaws.com"
-      }
-    }]
-  })
-}
-
-# IAM policy for the Firehose role
-resource "aws_iam_role_policy" "firehose_waf_logs" {
-  name = "firehose-waf-logs-policy-${var.name}"
-  role = aws_iam_role.firehose_waf_logs.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:AbortMultipartUpload",
-          "s3:GetBucketLocation",
-          "s3:GetObject",
-          "s3:ListBucket",
-          "s3:ListBucketMultipartUploads",
-          "s3:PutObject"
-        ]
-        Resource = [
-          module.waf_logs_s3.arn,
-          "${module.waf_logs_s3.arn}/*"
-        ]
-      }
-    ]
-  })
-}
-
-# Kinesis Firehose delivery stream for WAF logs
-resource "aws_kinesis_firehose_delivery_stream" "waf_logs" {
-  name        = "aws-waf-logs-${var.name}"
-  destination = "extended_s3"
-  extended_s3_configuration {
-    role_arn   = aws_iam_role.firehose_waf_logs.arn
-    bucket_arn = module.waf_logs_s3.arn
-    prefix     = "AWSLogs/${data.aws_caller_identity.current.account_id}/WAF/"
-    # Correct parameter names for AWS provider v5.x
-    buffering_interval = 300
-    buffering_size     = 5
-  }
-  tags = merge(local.tags, {
-    Name = "firehose-waf-logs-${var.name}"
-  })
-}
-
-module "access_logs_s3" {
+module "alb_access_logs_s3" {
   source        = "boldlink/s3/aws"
   version       = "2.5.1"
   bucket        = "${var.name}-${local.account_id}"
-  bucket_policy = data.aws_iam_policy_document.s3.json
+  bucket_policy = data.aws_iam_policy_document.alb_s3.json
   force_destroy = var.force_destroy
-  tags          = local.tags
+  tags          = merge(local.tags, { Name = "${var.name}-${local.account_id}" })
 }
 
 module "alb" {
@@ -104,7 +29,7 @@ module "alb" {
   subnets                    = local.public_subnets
   tags                       = local.tags
   access_logs = {
-    bucket  = module.access_logs_s3.bucket
+    bucket  = module.alb_access_logs_s3.bucket
     enabled = var.access_logs_enabled
   }
   ingress_rules = {
@@ -115,15 +40,13 @@ module "alb" {
   }
 }
 
-module "complete_waf" {
+module "waf_alb" {
   source                 = "./../.."
-  name                   = var.name
-  description            = var.description
-  tags                   = local.tags
+  name                   = "${var.name}-alb"
+  description            = "${var.name} WAF for ALB"
+  tags                   = merge(local.tags, { Name = "${var.name}-alb-waf" })
   web_acl_resource_arn   = module.alb.lb_arn
   create_acl_association = var.create_acl_association
-
-  # Custom response bodies configuration
   custom_response_bodies = [
     {
       key          = "custom_response_body_1"
@@ -131,12 +54,8 @@ module "complete_waf" {
       content_type = "TEXT_PLAIN"
     }
   ]
-
-  # Enable logging with Kinesis Firehose to S3
   enable_logging          = true
-  log_destination_configs = [aws_kinesis_firehose_delivery_stream.waf_logs.arn]
-
-  # Simplified redacted_fields - only supporting single_header for now
+  log_destination_configs = [aws_cloudwatch_log_group.waf_logs.arn]
   redacted_fields = [
     {
       single_header = {
@@ -149,8 +68,6 @@ module "complete_waf" {
       }
     }
   ]
-
-  # Logging filter configuration
   logging_filter = {
     default_behavior = "KEEP"
     filters = [
@@ -159,17 +76,15 @@ module "complete_waf" {
         requirement = "MEETS_ANY"
         conditions = [
           {
-            action_condition = "COUNT"
+            "action_condition" = "COUNT"
           }
         ]
       }
     ]
   }
-
   rules = [
-    # CORS rule for domains ending with boldlink.io
     {
-      name     = "${var.name}-cors-sciensus"
+      name     = "${var.name}-cors-boldlink"
       priority = 1
       action = {
         allow = {}
@@ -192,15 +107,13 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
-        metric_name                = "${var.name}-cors-sciensus-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.name}-cors-boldlink-metric"
+        sampled_requests_enabled   = false
       }
     },
-
-    # CORS rule for domains ending with bravolink.io
     {
-      name     = "${var.name}-cors-vinehealth"
+      name     = "${var.name}-cors-bravolink"
       priority = 2
       action = {
         allow = {}
@@ -223,13 +136,11 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
-        metric_name                = "${var.name}-cors-vinehealth-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.name}-cors-bravolink-metric"
+        sampled_requests_enabled   = false
       }
     },
-
-    # CORS preflight OPTIONS rule
     {
       name     = "${var.name}-cors-preflight"
       priority = 3
@@ -252,9 +163,9 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-cors-preflight-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        sampled_requests_enabled   = false
       }
     },
 
@@ -278,9 +189,9 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-allow-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        sampled_requests_enabled   = false
       }
     },
 
@@ -309,9 +220,9 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-block-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        sampled_requests_enabled   = false
       }
     },
 
@@ -328,7 +239,7 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = false
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-captcha-metric"
         sampled_requests_enabled   = false
       }
@@ -348,13 +259,12 @@ module "complete_waf" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-common-rule-none-override"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        sampled_requests_enabled   = false
       }
     },
 
-    # SQL Injection Protection Rule Set
     {
       name = "${var.name}-sqli-protection"
       override_action = {
@@ -365,37 +275,87 @@ module "complete_waf" {
         managed_rule_group_statement = {
           name        = "AWSManagedRulesSQLiRuleSet"
           vendor_name = "AWS"
-          version     = "Version_2.0"
+          # version     = "Version_2.0"
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-sqli-protection"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        sampled_requests_enabled   = false
       }
     },
   ]
+  depends_on = [ aws_cloudwatch_log_group.waf_logs, module.alb ]
 }
 
-# CloudWatch Log Group for CloudFront WAF logs
-resource "aws_cloudwatch_log_group" "waf_cloudfront_logs" {
-  provider          = aws.cloudfront
-  name              = "aws-waf-logs-cloudfront-${var.name}"
-  retention_in_days = 30
-  tags              = local.tags
+/*
+Complete example Cloudfront with WAF and firehose logs
+*/
+resource "aws_iam_role" "firehose_cloudfront_waf_logs" {
+  provider = aws.cloudfront
+  name     = "firehose-cloudfront-waf-${var.name}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "firehose.amazonaws.com"
+      }
+    }]
+  })
 }
 
-module "waf_with_cloudfront" {
+resource "aws_iam_role_policy" "firehose_cloudfront_waf_logs" {
+  provider = aws.cloudfront
+  name     = "firehose-cloudfront-waf-policy-${var.name}"
+  role     = aws_iam_role.firehose_cloudfront_waf_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:AbortMultipartUpload",
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:PutObject"
+        ]
+        Resource = [
+          module.waf_logs_s3.arn,
+          "${module.waf_logs_s3.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_kinesis_firehose_delivery_stream" "cloudfront_waf_logs" {
+  provider    = aws.cloudfront
+  name        = "aws-waf-logs-cloudfront-${var.name}"
+  destination = "extended_s3"
+  extended_s3_configuration {
+    role_arn           = aws_iam_role.firehose_cloudfront_waf_logs.arn
+    bucket_arn         = module.waf_logs_s3.arn
+    prefix             = "CloudFront/AWSLogs/${local.account_id}/WAF/"
+    buffering_interval = 300
+    buffering_size     = 5
+  }
+  depends_on = [aws_iam_role.firehose_cloudfront_waf_logs, aws_iam_role_policy.firehose_cloudfront_waf_logs]
+  tags       = merge(local.tags, { Name = "aws-waf-logs-cloudfront-${var.name}" })
+}
+
+module "waf_cloudfront" {
   providers = {
     aws = aws.cloudfront
   }
-  source = "./../.."
-  name   = "${var.name}-cloudfront"
-  scope  = var.scope
-  # Enable logging with CloudWatch Log Group
+  source                  = "./../.."
+  name                    = "${var.name}-cloudfront"
+  scope                   = var.scope
   enable_logging          = true
-  log_destination_configs = [aws_cloudwatch_log_group.waf_cloudfront_logs.arn]
-  # Simplified redacted_fields for CloudFront example
+  log_destination_configs = [aws_kinesis_firehose_delivery_stream.cloudfront_waf_logs.arn]
   redacted_fields = [
     {
       single_header = {
@@ -408,7 +368,6 @@ module "waf_with_cloudfront" {
       }
     }
   ]
-  # Logging filter configuration
   logging_filter = {
     default_behavior = "KEEP"
     filters = [
@@ -417,7 +376,7 @@ module "waf_with_cloudfront" {
         requirement = "MEETS_ALL"
         conditions = [
           {
-            action_condition = "COUNT"
+            "action_condition" = "COUNT"
           }
         ]
       }
@@ -437,21 +396,20 @@ module "waf_with_cloudfront" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
+        cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-count-override"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        sampled_requests_enabled   = false
       }
     },
-    # CORS rules for CloudFront
     {
-      name     = "${var.name}-cf-cors-sciensus"
+      name     = "${var.name}-cf-cors-boldlink"
       priority = 2
       action = {
         allow = {}
       }
       statement = {
         byte_match_statement = {
-          search_string         = "stg.sciensus.com"
+          search_string         = "boldlink.io"
           positional_constraint = "ENDS_WITH"
           field_to_match = {
             single_header = {
@@ -467,20 +425,20 @@ module "waf_with_cloudfront" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
-        metric_name                = "${var.name}-cf-cors-sciensus-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.name}-cf-cors-bravolink-metric"
+        sampled_requests_enabled   = false
       }
     },
     {
-      name     = "${var.name}-cf-cors-vinehealth"
+      name     = "${var.name}-cf-cors-bravolink"
       priority = 3
       action = {
         allow = {}
       }
       statement = {
         byte_match_statement = {
-          search_string         = ".vinehealth.com"
+          search_string         = "bravolink.io"
           positional_constraint = "ENDS_WITH"
           field_to_match = {
             single_header = {
@@ -496,9 +454,9 @@ module "waf_with_cloudfront" {
         }
       }
       visibility_config = {
-        cloudwatch_metrics_enabled = var.cloudwatch_metrics_enabled
-        metric_name                = "${var.name}-cf-cors-vinehealth-metric"
-        sampled_requests_enabled   = var.sampled_requests_enabled
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.name}-cf-cors-bravolink-metric"
+        sampled_requests_enabled   = false
       }
     },
     {
@@ -531,12 +489,37 @@ module "waf_with_cloudfront" {
       }
       visibility_config = {
         cloudwatch_metrics_enabled = false
-        metric_name                = "${var.name}-count-metric"
+        metric_name                = "${var.name}-gb-count-metric"
         sampled_requests_enabled   = false
       }
     },
   ]
-  depends_on = [aws_cloudwatch_log_group.waf_cloudfront_logs]
+}
+
+/*
+Complete example waf with S3 log delivery
+*/
+module "waf_logs_s3" {
+  source        = "boldlink/s3/aws"
+  version       = "2.5.1"
+  bucket        = "aws-waf-logs-${var.name}-${local.account_id}"
+  force_destroy = true
+  bucket_policy = data.aws_iam_policy_document.waf_logs_s3.json
+  lifecycle_configuration = [{
+    id      = "waf-logs-cleanup"
+    enabled = true
+    filter = {
+      object_size_greater_than = 0
+    }
+    expiration = {
+      days = 90 # Expire logs after 90 days
+    }
+    transition = [{
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }]
+  }]
+  tags = merge(local.tags, { Name = "aws-waf-logs-${var.name}-${local.account_id}" })
 }
 
 module "waf_s3" {
@@ -544,8 +527,5 @@ module "waf_s3" {
   name                    = "${var.name}-s3"
   enable_logging          = true
   log_destination_configs = [module.waf_logs_s3.arn]
-  tags                    = local.tags
-  depends_on = [module.waf_logs_s3]
+  tags                    = merge(local.tags, { Name = "${var.name}-s3" })
 }
-
-

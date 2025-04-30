@@ -22,8 +22,9 @@ data "aws_subnet" "public" {
 data "aws_elb_service_account" "main" {}
 
 ### LB Bucket Policy
-data "aws_iam_policy_document" "s3" {
+data "aws_iam_policy_document" "alb_s3" {
   policy_id = "s3_bucket_lb_logs"
+
   statement {
     actions = [
       "s3:PutObject",
@@ -38,9 +39,7 @@ data "aws_iam_policy_document" "s3" {
     }
   }
   statement {
-    actions = [
-      "s3:PutObject"
-    ]
+    actions   = ["s3:PutObject"]
     effect    = "Allow"
     resources = ["arn:aws:s3:::${var.name}-${local.account_id}/*"]
     principals {
@@ -49,9 +48,7 @@ data "aws_iam_policy_document" "s3" {
     }
   }
   statement {
-    actions = [
-      "s3:GetBucketAcl"
-    ]
+    actions   = ["s3:GetBucketAcl"]
     effect    = "Allow"
     resources = ["arn:aws:s3:::${var.name}-${local.account_id}"]
     principals {
