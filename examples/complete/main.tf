@@ -285,7 +285,7 @@ module "waf_alb" {
       }
     },
   ]
-  depends_on = [ aws_cloudwatch_log_group.waf_logs, module.alb ]
+  depends_on = [aws_cloudwatch_log_group.waf_logs, module.alb]
 }
 
 /*

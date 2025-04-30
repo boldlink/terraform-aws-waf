@@ -219,7 +219,7 @@ resource "aws_wafv2_web_acl" "main" {
               version     = try(managed_rule_group_statement.value.version, null)
             }
           }
-          
+
           # byte_match_statement support
           dynamic "byte_match_statement" {
             for_each = try([statement.value.byte_match_statement], [])
@@ -238,31 +238,31 @@ resource "aws_wafv2_web_acl" "main" {
                       name = single_header.value.name
                     }
                   }
-                  
+
                   # method field match
                   dynamic "method" {
                     for_each = try([field_to_match.value.method], [])
                     content {}
                   }
-                  
+
                   # uri_path field match
                   dynamic "uri_path" {
                     for_each = try([field_to_match.value.uri_path], [])
                     content {}
                   }
-                  
+
                   # query_string field match
                   dynamic "query_string" {
                     for_each = try([field_to_match.value.query_string], [])
                     content {}
                   }
-                  
+
                   # body field match
                   dynamic "body" {
                     for_each = try([field_to_match.value.body], [])
                     content {}
                   }
-                  
+
                   # all_query_arguments field match
                   dynamic "all_query_arguments" {
                     for_each = try([field_to_match.value.all_query_arguments], [])
@@ -270,7 +270,7 @@ resource "aws_wafv2_web_acl" "main" {
                   }
                 }
               }
-              
+
               # text_transformation block(s)
               dynamic "text_transformation" {
                 for_each = try(byte_match_statement.value.text_transformation, [])
@@ -328,7 +328,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
   count                   = var.enable_logging ? 1 : 0
   log_destination_configs = var.log_destination_configs
   resource_arn            = aws_wafv2_web_acl.main.arn
-  
+
   # Only use redacted_fields if provided
   dynamic "redacted_fields" {
     for_each = var.redacted_fields != null ? var.redacted_fields : []
@@ -350,7 +350,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
         content {
           behavior    = filter.value.behavior
           requirement = filter.value.requirement
-          
+
           dynamic "condition" {
             for_each = lookup(filter.value, "conditions", [])
             content {
