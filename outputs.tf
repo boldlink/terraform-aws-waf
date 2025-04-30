@@ -1,3 +1,4 @@
+
 output "arn" {
   description = "The ARN of the WAF WebACL."
   value       = aws_wafv2_web_acl.main.arn
@@ -36,4 +37,9 @@ output "ipv6_set_id" {
 output "ipv6_set_arn" {
   description = "The Amazon Resource Name (ARN) of the IPv6 set."
   value       = try(aws_wafv2_ip_set.ipset_v6[0].arn, null)
+}
+
+output "log_destination_configs" {
+  description = "The logging destination configuration for the WebACL."
+  value       = try(aws_wafv2_web_acl_logging_configuration.main[0].log_destination_configs, null)
 }

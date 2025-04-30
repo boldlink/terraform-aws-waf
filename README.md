@@ -57,7 +57,7 @@ module "miniumum" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.25.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.96.0 |
 
 ## Modules
 
@@ -71,6 +71,7 @@ No modules.
 | [aws_wafv2_ip_set.ipset_v6](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_ip_set) | resource |
 | [aws_wafv2_web_acl.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl) | resource |
 | [aws_wafv2_web_acl_association.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl_association) | resource |
+| [aws_wafv2_web_acl_logging_configuration.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl_logging_configuration) | resource |
 
 ## Inputs
 
@@ -81,11 +82,15 @@ No modules.
 | <a name="input_custom_response_bodies"></a> [custom\_response\_bodies](#input\_custom\_response\_bodies) | Defines custom response bodies that can be referenced by `custom_response` actions | `any` | `[]` | no |
 | <a name="input_default_action"></a> [default\_action](#input\_default\_action) | Set to `allow` for WAF to allow requests by default. Set to `block` for WAF to block requests by default. | `string` | `"allow"` | no |
 | <a name="input_description"></a> [description](#input\_description) | Friendly description of the WebACL. | `string` | `null` | no |
+| <a name="input_enable_logging"></a> [enable\_logging](#input\_enable\_logging) | Whether to enable logging for the WAF WebACL | `bool` | `false` | no |
 | <a name="input_ip_set_reference_statement"></a> [ip\_set\_reference\_statement](#input\_ip\_set\_reference\_statement) | A rule statement used to detect web requests coming from particular IP addresses or address ranges. | `any` | `{}` | no |
 | <a name="input_ip_set_v4"></a> [ip\_set\_v4](#input\_ip\_set\_v4) | IPV4 IP set | `any` | `[]` | no |
 | <a name="input_ip_set_v6"></a> [ip\_set\_v6](#input\_ip\_set\_v6) | IPV6 IP set | `any` | `[]` | no |
+| <a name="input_log_destination_configs"></a> [log\_destination\_configs](#input\_log\_destination\_configs) | The Amazon Kinesis Data Firehose, CloudWatch Log log group, or S3 bucket Amazon Resource Names (ARNs) that you want to associate with the web ACL. | `list(string)` | `[]` | no |
+| <a name="input_logging_filter"></a> [logging\_filter](#input\_logging\_filter) | Configuration for WAF logging filters. Determines which requests are logged. | <pre>object({<br>    default_behavior = string, # Required: "KEEP" or "DROP"<br>    filters = list(object({<br>      behavior    = string,           # Required: "KEEP" or "DROP"<br>      requirement = string,           # Required: "MEETS_ALL" or "MEETS_ANY"<br>      conditions  = list(map(string)) # Map to hold action_condition OR label_name_condition<br>    }))<br>  })</pre> | `null` | no |
 | <a name="input_metric_name"></a> [metric\_name](#input\_metric\_name) | The name of the metric | `string` | `"sample-name-1"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Friendly name of the WebACL. | `string` | n/a | yes |
+| <a name="input_redacted_fields"></a> [redacted\_fields](#input\_redacted\_fields) | List of fields to redact from the logs. Currently only supports single\_header type. | `list(any)` | `null` | no |
 | <a name="input_rules"></a> [rules](#input\_rules) | Rule blocks used to identify the web requests that you want to `allow`, `block`, or `count` | `any` | `[]` | no |
 | <a name="input_sampled_requests_enabled"></a> [sampled\_requests\_enabled](#input\_sampled\_requests\_enabled) | Whether to enable sample requests | `bool` | `false` | no |
 | <a name="input_scope"></a> [scope](#input\_scope) | Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1 (N. Virginia)` on the AWS provider. | `string` | `"REGIONAL"` | no |
@@ -103,6 +108,7 @@ No modules.
 | <a name="output_ipv4_set_id"></a> [ipv4\_set\_id](#output\_ipv4\_set\_id) | A unique identifier for the IPv4 set. |
 | <a name="output_ipv6_set_arn"></a> [ipv6\_set\_arn](#output\_ipv6\_set\_arn) | The Amazon Resource Name (ARN) of the IPv6 set. |
 | <a name="output_ipv6_set_id"></a> [ipv6\_set\_id](#output\_ipv6\_set\_id) | A unique identifier for the IPv6 set. |
+| <a name="output_log_destination_configs"></a> [log\_destination\_configs](#output\_log\_destination\_configs) | The logging destination configuration for the WebACL. |
 | <a name="output_tags_all"></a> [tags\_all](#output\_tags\_all) | Map of tags assigned to the resource, including those inherited from the provider default\_tags configuration block. |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 

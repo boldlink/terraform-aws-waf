@@ -15,7 +15,6 @@ variable "scope" {
   default     = "REGIONAL"
 }
 
-
 variable "default_action" {
   type        = string
   description = "Set to `allow` for WAF to allow requests by default. Set to `block` for WAF to block requests by default."
@@ -86,4 +85,42 @@ variable "ip_set_reference_statement" {
   type        = any
   description = "A rule statement used to detect web requests coming from particular IP addresses or address ranges."
   default     = {}
+}
+
+variable "enable_logging" {
+  type        = bool
+  description = "Whether to enable logging for the WAF WebACL"
+  default     = false
+}
+
+variable "log_destination_configs" {
+  type        = list(string)
+  description = "The Amazon Kinesis Data Firehose, CloudWatch Log log group, or S3 bucket Amazon Resource Names (ARNs) that you want to associate with the web ACL."
+  default     = []
+}
+
+# Simplified redacted fields variable for header-only redaction
+variable "redacted_fields" {
+  type        = list(any)
+  description = "List of fields to redact from the logs. Currently only supports single_header type."
+  default     = null
+}
+
+# Logging filter variable without experimental features
+variable "logging_filter" {
+  type = object({
+    default_behavior = string, # Required: "KEEP" or "DROP"
+    filters = list(object({
+      behavior    = string,           # Required: "KEEP" or "DROP"
+      requirement = string,           # Required: "MEETS_ALL" or "MEETS_ANY"
+      conditions  = list(map(string)) # Map to hold action_condition OR label_name_condition
+    }))
+  })
+  description = "Configuration for WAF logging filters. Determines which requests are logged."
+  default     = null
+
+  validation {
+    condition     = var.logging_filter == null ? true : contains(["KEEP", "DROP"], var.logging_filter.default_behavior)
+    error_message = "Default_behavior must be either \"KEEP\" or \"DROP\"."
+  }
 }

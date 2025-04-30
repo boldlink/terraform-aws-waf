@@ -69,7 +69,7 @@ resource "aws_wafv2_web_acl" "main" {
                   response_code            = custom_response.value.response_code
 
                   dynamic "response_header" {
-                    for_each = try(custom_response.value.response_header, [])
+                    for_each = try(custom_response.value.response_headers, [])
                     content {
                       name  = try(response_header.value.name, null)
                       value = try(response_header.value.value, null)
@@ -219,6 +219,68 @@ resource "aws_wafv2_web_acl" "main" {
               version     = try(managed_rule_group_statement.value.version, null)
             }
           }
+
+          # byte_match_statement support
+          dynamic "byte_match_statement" {
+            for_each = try([statement.value.byte_match_statement], [])
+            content {
+              search_string         = byte_match_statement.value.search_string
+              positional_constraint = byte_match_statement.value.positional_constraint
+
+              # field_to_match block
+              dynamic "field_to_match" {
+                for_each = try([byte_match_statement.value.field_to_match], [])
+                content {
+                  # single_header field match
+                  dynamic "single_header" {
+                    for_each = try([field_to_match.value.single_header], [])
+                    content {
+                      name = single_header.value.name
+                    }
+                  }
+
+                  # method field match
+                  dynamic "method" {
+                    for_each = try([field_to_match.value.method], [])
+                    content {}
+                  }
+
+                  # uri_path field match
+                  dynamic "uri_path" {
+                    for_each = try([field_to_match.value.uri_path], [])
+                    content {}
+                  }
+
+                  # query_string field match
+                  dynamic "query_string" {
+                    for_each = try([field_to_match.value.query_string], [])
+                    content {}
+                  }
+
+                  # body field match
+                  dynamic "body" {
+                    for_each = try([field_to_match.value.body], [])
+                    content {}
+                  }
+
+                  # all_query_arguments field match
+                  dynamic "all_query_arguments" {
+                    for_each = try([field_to_match.value.all_query_arguments], [])
+                    content {}
+                  }
+                }
+              }
+
+              # text_transformation block(s)
+              dynamic "text_transformation" {
+                for_each = try(byte_match_statement.value.text_transformation, [])
+                content {
+                  priority = text_transformation.value.priority
+                  type     = text_transformation.value.type
+                }
+              }
+            }
+          }
         }
       }
 
@@ -259,4 +321,60 @@ resource "aws_wafv2_ip_set" "ipset_v6" {
   ip_address_version = "IPV6"
   addresses          = try(var.ip_set_v6[count.index]["addresses"], null)
   tags               = var.tags
+}
+
+# Simple logging configuration without dynamic blocks or experimental features
+resource "aws_wafv2_web_acl_logging_configuration" "main" {
+  count                   = var.enable_logging ? 1 : 0
+  log_destination_configs = var.log_destination_configs
+  resource_arn            = aws_wafv2_web_acl.main.arn
+
+  # Only use redacted_fields if provided
+  dynamic "redacted_fields" {
+    for_each = var.redacted_fields != null ? var.redacted_fields : []
+    content {
+      single_header {
+        name = lookup(redacted_fields.value, "single_header", null) != null ? redacted_fields.value.single_header.name : null
+      }
+    }
+  }
+
+  # Logging filter without experimental features
+  dynamic "logging_filter" {
+    for_each = var.logging_filter != null ? [var.logging_filter] : []
+    content {
+      default_behavior = logging_filter.value.default_behavior
+
+      dynamic "filter" {
+        for_each = lookup(logging_filter.value, "filters", [])
+        content {
+          behavior    = filter.value.behavior
+          requirement = filter.value.requirement
+
+          dynamic "condition" {
+            for_each = lookup(filter.value, "conditions", [])
+            content {
+              # Handle action_condition if it exists
+              dynamic "action_condition" {
+                for_each = lookup(condition.value, "action_condition", null) != null ? [condition.value.action_condition] : []
+                content {
+                  action = action_condition.value
+                }
+              }
+
+              # Handle label_name_condition if it exists
+              dynamic "label_name_condition" {
+                for_each = lookup(condition.value, "label_name_condition", null) != null ? [condition.value.label_name_condition] : []
+                content {
+                  label_name = label_name_condition.value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [aws_wafv2_web_acl.main]
 }
