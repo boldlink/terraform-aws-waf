@@ -121,6 +121,6 @@ variable "logging_filter" {
   
   validation {
     condition = var.logging_filter == null ? true : contains(["KEEP", "DROP"], var.logging_filter.default_behavior)
-    error_message = "default_behavior must be either \"KEEP\" or \"DROP\"."
+    error_message = "Default_behavior must be either \"KEEP\" or \"DROP\"."
   }
 }
