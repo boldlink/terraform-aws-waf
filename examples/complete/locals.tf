@@ -1,10 +1,7 @@
 locals {
-  service_account = data.aws_elb_service_account.main.arn
-  public_subnets  = local.public_subnet_id
-  vpc_id          = data.aws_vpc.supporting.id
-  tags            = merge({ "Name" = var.name }, var.tags)
   account_id      = data.aws_caller_identity.current.account_id
-  public_subnet_id = [
-    for i in data.aws_subnet.public : i.id
-  ]
+  service_account = data.aws_elb_service_account.main.arn
+  tags            = merge(var.tags, { Name = var.name })
+  vpc_id          = data.aws_vpc.supporting.id
+  public_subnets  = [for s in data.aws_subnet.public : s.id]
 }

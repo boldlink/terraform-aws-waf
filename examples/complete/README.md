@@ -26,8 +26,8 @@
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.97.0 |
-| <a name="provider_aws.cloudfront"></a> [aws.cloudfront](#provider\_aws.cloudfront) | 5.97.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.96.0 |
+| <a name="provider_aws.cloudfront"></a> [aws.cloudfront](#provider\_aws.cloudfront) | 5.96.0 |
 
 ## Modules
 
