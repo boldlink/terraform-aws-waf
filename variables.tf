@@ -107,7 +107,7 @@ variable "redacted_fields" {
 
 variable "logging_filter" {
   type = object({
-    default_behavior = string,        # Required: "KEEP" or "DROP"
+    default_behavior = string, # Required: "KEEP" or "DROP"
     filters = list(object({
       behavior    = string,           # Required: "KEEP" or "DROP"
       requirement = string,           # Required: "MEETS_ALL" or "MEETS_ANY"

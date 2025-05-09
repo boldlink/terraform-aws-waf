@@ -217,13 +217,13 @@ resource "aws_wafv2_web_acl" "main" {
               name        = managed_rule_group_statement.value.name
               vendor_name = managed_rule_group_statement.value.vendor_name
               version     = try(managed_rule_group_statement.value.version, null)
-              
+
               # Add support for rule_action_override with fixed structure
               dynamic "rule_action_override" {
                 for_each = try(managed_rule_group_statement.value.rule_action_override, [])
                 content {
                   name = rule_action_override.value.name
-                  
+
                   # The action_to_use block is required
                   action_to_use {
                     # Only one of these can be specified
@@ -231,17 +231,17 @@ resource "aws_wafv2_web_acl" "main" {
                       for_each = try([rule_action_override.value.action_to_use.count], [])
                       content {}
                     }
-                    
+
                     dynamic "block" {
                       for_each = try([rule_action_override.value.action_to_use.block], [])
                       content {}
                     }
-                    
+
                     dynamic "captcha" {
                       for_each = try([rule_action_override.value.action_to_use.captcha], [])
                       content {}
                     }
-                    
+
                     dynamic "challenge" {
                       for_each = try([rule_action_override.value.action_to_use.challenge], [])
                       content {}
@@ -249,9 +249,9 @@ resource "aws_wafv2_web_acl" "main" {
                   }
                 }
               }
-              
+
               # Removed the excluded_rule block that was causing errors
-              
+
               # Scope down statement remains as it's different from excluded_rule
               dynamic "scope_down_statement" {
                 for_each = try([managed_rule_group_statement.value.scope_down_statement], [])
@@ -262,7 +262,7 @@ resource "aws_wafv2_web_acl" "main" {
                     content {
                       search_string         = byte_match_statement.value.search_string
                       positional_constraint = byte_match_statement.value.positional_constraint
-                      
+
                       # field_to_match
                       dynamic "field_to_match" {
                         for_each = try([byte_match_statement.value.field_to_match], [])
@@ -274,31 +274,31 @@ resource "aws_wafv2_web_acl" "main" {
                               name = single_header.value.name
                             }
                           }
-                          
+
                           # method field match
                           dynamic "method" {
                             for_each = try([field_to_match.value.method], [])
                             content {}
                           }
-                          
+
                           # uri_path field match
                           dynamic "uri_path" {
                             for_each = try([field_to_match.value.uri_path], [])
                             content {}
                           }
-                          
+
                           # query_string field match
                           dynamic "query_string" {
                             for_each = try([field_to_match.value.query_string], [])
                             content {}
                           }
-                          
+
                           # body field match
                           dynamic "body" {
                             for_each = try([field_to_match.value.body], [])
                             content {}
                           }
-                          
+
                           # all_query_arguments field match
                           dynamic "all_query_arguments" {
                             for_each = try([field_to_match.value.all_query_arguments], [])
@@ -306,7 +306,7 @@ resource "aws_wafv2_web_acl" "main" {
                           }
                         }
                       }
-                      
+
                       # text_transformation
                       dynamic "text_transformation" {
                         for_each = try(byte_match_statement.value.text_transformation, [])
