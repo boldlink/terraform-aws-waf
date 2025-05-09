@@ -1,3 +1,9 @@
+# !!!!!!!!!!!!!!!!!!!!!!!!NOTICE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# This is a complete example of WAF with ALB and CloudFront
+# The bellow config are for testing purposes and example of
+# functionality and SHOULD NOT be used in production.
+# !!!!!!!!!!!!!!!!!!!!!!!!NOTICE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 /*
 Complete example for WAF with ALB and Log Group
 */
@@ -256,8 +262,35 @@ module "waf_alb" {
         managed_rule_group_statement = {
           name        = "AWSManagedRulesCommonRuleSet"
           vendor_name = "AWS"
+          rule_action_override = [
+            {
+              name = "GenericRFI_BODY" # Common culprit for file uploads
+              action_to_use = {
+                count = {} # Set to count instead of block
+              }
+            },
+            {
+              name = "RestrictedExtensions_BODY" # May block certain file types
+              action_to_use = {
+                count = {}
+              }
+            },
+            {
+              name = "SizeRestrictions_BODY" # Often blocks larger uploads
+              action_to_use = {
+                count = {}
+              }
+            },
+            {
+              name = "CrossSiteScripting_BODY" # May trigger on certain content
+              action_to_use = {
+                count = {}
+              }
+            }
+          ]
         }
       }
+
       visibility_config = {
         cloudwatch_metrics_enabled = true
         metric_name                = "${var.name}-common-rule-none-override"

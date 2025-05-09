@@ -8,14 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: CKV_AWS_192 #"Ensure WAF prevents message lookup in Log4j2. See CVE-2021-44228 aka log4jshell"
 - fix: CKV2_AWS_31 #"Ensure WAF2 has a Logging Configuration"
 - feat: Add remaining statement features for the rule block
-- feat: add remaining features in managed_rule_group_statement block
-- feat: Add more examples on different usage of the module showcasing the usage of most dynamic blocks
 - feat: Add classic waf submodule and examples
 - feat: Add rule group features
 - feat: Add regex pattern set features
-- feat: Add web acl logging configuration feature(s)
 - fix: CKV_TF_1 #"Ensure Terraform module sources use a commit hash"
 - fix: CKV_AWS_342 #"Ensure WAF rule has any actions"
+
+## [1.2.0] - 2025-05-09
+- feat: add managed_rule_group_statement rule override block
+- feat: add managed_rule_group_statement rule override action block example
+- feat: Add more examples on different usage of the module showcasing the usage of most dynamic blocks
 
 ## [1.1.0] - 2025-04-30
  - feat: adding the byte match statement support

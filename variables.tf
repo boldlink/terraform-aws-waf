@@ -99,17 +99,15 @@ variable "log_destination_configs" {
   default     = []
 }
 
-# Simplified redacted fields variable for header-only redaction
 variable "redacted_fields" {
   type        = list(any)
   description = "List of fields to redact from the logs. Currently only supports single_header type."
   default     = null
 }
 
-# Logging filter variable without experimental features
 variable "logging_filter" {
   type = object({
-    default_behavior = string, # Required: "KEEP" or "DROP"
+    default_behavior = string,        # Required: "KEEP" or "DROP"
     filters = list(object({
       behavior    = string,           # Required: "KEEP" or "DROP"
       requirement = string,           # Required: "MEETS_ALL" or "MEETS_ANY"
